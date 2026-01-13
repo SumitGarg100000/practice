@@ -1069,7 +1069,7 @@ def normalize_invoice_number(inv_num):
     """Remove special characters from invoice number for comparison"""
     if inv_num is None:
         return ''
-    return re.sub(r"[\s/\\.,\"?']", "", str(inv_num))
+    return re.sub(r"[\\s/\\.,\\\"?']", "", str(inv_num))
 
 def safe_float(value):
     """Safely convert value to float"""
