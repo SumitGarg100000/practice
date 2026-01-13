@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free GST Reconciliation tool who reconcile your data within a seconds using Python for large data handling.">
+    <meta name="keywords" content="GST,GST Reco, Reconciliation, GST Reconciliation, GSTR-2B, GSTR2B, GSTR-3B, GSTR3B, 2b vs 3b, Python">
+    <title>GST Reconciliation Tool - Python Powered Edition</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <!-- Pyodide - Python in Browser -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+        }
+
+        :root {
+            --primary-color: #1a73e8;
+            --primary-dark: #0d47a1;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --bg-gradient-1: linear-gradient(135deg, #f5f7fa, #e4f1ff);
+        }
+
+        body {
+            background: var(--bg-gradient-1);
+            color: var(--text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 100%;
+            width: 98%;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 61, 115, 0.1);
+            min-height: calc(80vh - 40px);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #0e4377;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #1a5fb4;
+            font-size: 1.8em;
+            margin: 20px 0;
+            padding: 10px;
+            background: linear-gradient(to right, #e6f3ff, #f0f8ff);
+            border-radius: 8px;
+        }
+
+        .control-panel {
+            background: #f5f9ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 10px rgba(0, 61, 115, 0.05);
+        }
+
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e6f3ff;
+            border-radius: 10px;
+            border: 1px solid #cce0ff;
+        }
+
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        #reconcile-btn {
+            background: linear-gradient(145deg, #1a73e8, #0d47a1);
+            color: white;
+        }
+
+        #reconcile-btn:hover {
+            background: linear-gradient(145deg, #0d47a1, #1a73e8);
+        }
+
+        #reset-btn {
+            background: linear-gradient(145deg, #e53935, #c62828);
+            color: white;
+        }
+
+        #reset-btn:hover {
+            background: linear-gradient(145deg, #c62828, #e53935);
+        }
+
+        #download-sample {
+            background: linear-gradient(145deg, #2e7d32, #1b5e20);
+            color: white;
+        }
+
+        #download-sample:hover {
+            background: linear-gradient(145deg, #1b5e20, #2e7d32);
+        }
+
+        .upload-section {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px dashed #1a73e8;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            background: #e6f3ff;
+            border-color: #0d47a1;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px solid #1a73e8;
+            border-radius: 8px;
+            background: #f5f9ff;
+            width: 100%;
+            transition: border-color 0.3s;
+        }
+
+        input[type="file"]:hover {
+            border-color: #0d47a1;
+        }
+
+        input[type="number"], input[type="checkbox"], input[type="text"], input[type="password"] {
+            padding: 10px;
+            border: 2px solid #1a73e8;
+            border-radius: 8px;
+            background: #f5f9ff;
+            transition: all 0.3s ease;
+        }
+
+        input[type="number"]:focus, input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #0d47a1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #1a73e8;
+        }
+
+        label {
+            font-weight: 600;
+            color: #0e4377;
+        }
+
+        .data-container {
+            margin: 30px 0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 800px;
+            margin: 15px 0;
+            border: 1px solid #cce0ff;
+            border-radius: 8px;
+            padding: 5px;
+            background: #f5f9ff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead th {
+            position: sticky;
+            top: 0;
+            background: #1a73e8;
+            color: white;
+            z-index: 10;
+            border-bottom: 1px solid #0d47a1;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #1a73e8;
+            color: white;
+            font-weight: bold;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            border: 1px solid #cce0ff;
+            padding: 10px;
+            text-align: left;
+        }
+
+        #error {
+            color: #e53935;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        #expiry-message {
+            font-size: 1.2em;
+            margin: 10px 0;
+            padding: 10px;
+            background: #ffebee;
+            border-left: 4px solid #e53935;
+            border-radius: 4px;
+            transition: opacity 0.5s ease;
+            color: #e53935;
+        }
+
+        a#download-output {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 25px;
+            background: linear-gradient(145deg, #1a73e8, #0d47a1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-decoration: none;
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        a#download-output:hover {
+            background: linear-gradient(145deg, #0d47a1, #1a73e8);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        footer {
+            background: linear-gradient(145deg, #0e4377, #1a5fb4);
+            color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-top: 30px;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #ffffff;
+            text-decoration: none;
+            opacity: 0.9;
+            transition: opacity 0.3s ease;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+            text-decoration: underline;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .whatsapp-btn, .instructions-btn {
+            position: fixed;
+            z-index: 1000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 0 20px 10px rgba(37, 211, 102, 0.1);
+            animation: glow 3s infinite;
+            transition: all 0.3s ease;
+        }
+
+        .whatsapp-btn {
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(145deg, #25d366, #128C7E);
+            color: white;
+            width: 70px;
+            height: 70px;
+        }
+
+        .instructions-btn {
+            bottom: 100px;
+            right: 20px;
+            background: linear-gradient(145deg, #1a73e8, #0d47a1);
+            color: white;
+            width: 70px;
+            height: 70px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .whatsapp-btn:hover, .instructions-btn:hover {
+            transform: scale(1.1);
+            animation-play-state: paused;
+        }
+
+        .whatsapp-btn i, .instructions-btn i {
+            font-size: 36px;
+        }
+
+        @keyframes glow {
+            0% { box-shadow: 0 0 20px 0px rgba(26, 115, 232, 0.2); transform: scale(1); }
+            50% { box-shadow: 0 0 40px 20px rgba(26, 115, 232, 0.1); transform: scale(1.05); }
+            100% { box-shadow: 0 0 20px 0px rgba(26, 115, 232, 0.2); transform: scale(1); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            color: #0e4377;
+            cursor: pointer;
+            border: none;
+            background: none;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #e53935;
+        }
+
+        .modal-content h2 {
+            color: #0e4377;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .modal-content h3 {
+            color: #1a5fb4;
+            margin: 15px 0 10px;
+        }
+
+        .modal-content ol, .modal-content ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .modal-content li {
+            margin-bottom: 5px;
+        }
+
+        .filter-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .filter-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            padding: 0;
+            margin-left: 5px;
+            box-shadow: none;
+        }
+
+        .filter-dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            min-width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #cce0ff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 20;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        .filter-dropdown-content.show {
+            display: block;
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cce0ff;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .filter-option {
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 400;
+            color: #333;
+        }
+
+        .filter-option:hover {
+            background-color: #f0f8ff;
+        }
+
+        .filter-option input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #1a73e8;
+        }
+
+        .filter-option label {
+            font-weight: 400;
+            color: #333;
+        }
+
+        .filter-actions {
+            padding: 8px;
+            border-top: 1px solid #cce0ff;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .filter-actions button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin: 0 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background 0.3s ease;
+        }
+
+        .filter-actions button:hover {
+            background: #0d47a1;
+            transform: none;
+        }
+
+        .sort-actions {
+            padding: 8px;
+            border-top: 1px solid #cce0ff;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .sort-actions button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin: 0 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background 0.3s ease;
+        }
+
+        .sort-actions button:hover {
+            background: #0d47a1;
+            transform: none;
+        }
+
+        .explanation {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f5f9ff;
+            border: 1px solid #cce0ff;
+            border-radius: 8px;
+            overflow-y: auto;
+            max-height: calc(100vh - 300px);
+        }
+
+        .explanation h2, .explanation h3 {
+            color: #0e4377;
+            background: none;
+            text-align: left;
+            padding: 0;
+        }
+
+        .explanation ul, .explanation ol {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .explanation li {
+            margin-bottom: 5px;
+        }
+
+        .youtube-link {
+            color: #1a73e8;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .youtube-link:hover {
+            text-decoration: underline;
+        }
+
+        .custom-select {
+            position: relative;
+            display: inline-block;
+            min-width: 150px;
+            margin: 0 10px;
+        }
+
+        .custom-select select {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #1a73e8;
+            border-radius: 8px;
+            background-color: #f5f9ff;
+            color: #0e4377;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .custom-select select:hover {
+            border-color: #0d47a1;
+            background-color: #e6f3ff;
+        }
+
+        .custom-select select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+        }
+
+        .custom-select::after {
+            content: "\25BC";
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            color: #1a73e8;
+            pointer-events: none;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #1a73e8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: white;
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .python-badge {
+            background: linear-gradient(145deg, #306998, #FFD43B);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 15px;
+        }
+
+        .python-badge i {
+            color: #FFD43B;
+        }
+
+        @media (max-width: 768px) {
+            .options-container {
+                flex-direction: column;
+            }
+
+            .button-container {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .container {
+                width: 100%;
+                min-height: calc(100vh - 60px);
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 15px;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .custom-select {
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loading-text">Loading Python Environment...</div>
+    </div>
+
+    <div class="container">
+        <!-- Login Section -->
+        <div id="login-section">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">GST Reconciliation Login 
+                    <span class="python-badge"><i class="fab fa-python"></i> Python Powered</span>
+                </h1>
+            </div>
+            
+            <div class="mb-6">
+                <label for="username" class="block mb-2">Username:</label>
+                <input type="text" id="username" value="" placeholder="Enter username" class="w-full">
+            </div>
+            <div class="mb-6">
+                <label for="password" class="block mb-2">Password:</label>
+                <input type="password" id="password" value="" placeholder="Enter password" class="w-full">
+            </div>
+            <div class="flex flex-wrap justify-center gap-4">
+                <button onclick="login()" style="background: linear-gradient(145deg, #1a73e8, #0d47a1); color: white;" class="flex-1">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                <button onclick="freeServiceLogin()" style="background: linear-gradient(145deg, #ff9800, #f57c00); color: white;" class="flex-1">
+                    <i class="fas fa-user-check"></i> Free Service Login
+                </button>
+            </div>
+            <p id="error" class="mt-4"></p>
+
+            <div class="explanation" id="explanation-container">
+                <h2 class="text-xl font-bold mb-4">How to Use the GST Reconciliation Tool (Python Powered)</h2>
+                <p class="mb-4">This GST Reconciliation Tool uses Python for fast processing of large datasets. It compares and matches your GST data from GSTR-2B and GSTR-3B.</p>
+                
+                <h3 class="text-lg font-bold mb-2">Why Python?</h3>
+                <p class="mb-4">Python handles large data more efficiently than JavaScript, preventing browser hangs when processing thousands of records.</p>
+                
+                <h3 class="text-lg font-bold mb-2">Step-by-Step Guide</h3>
+                <ol class="list-decimal ml-6 mb-6">
+                    <li><strong>Log in</strong>: Use your username and password to access the tool.</li>
+                    <li><strong>Download Sample File</strong>: Click on "Download Sample Excel File" to get a template.</li>
+                    <li><strong>Prepare Your Data</strong>: Enter your GSTR-2B data in GST Portal sheet and GSTR-3B in Client Data sheet.</li>
+                    <li><strong>Upload File</strong>: Upload your prepared Excel file using the "Upload GST Data File" option.</li>
+                    <li><strong>Set Difference Allowed</strong>: Adjust the tolerance for differences in amounts (default is 1).</li>
+                    <li><strong>Enable Detailed Reconciliation</strong>: Check this box for detailed reconciliation.</li>
+                    <li><strong>Reconcile Data</strong>: Click "Reconcile" to process your data using Python.</li>
+                    <li><strong>Review Results</strong>: Check the GSTR-2B, GSTR-3B, and Summary tables for matched data.</li>
+                    <li><strong>Download Output</strong>: Click "Download Reconciled Data" to save the results.</li>
+                </ol>
+                
+                <h3 class="text-lg font-bold mb-2">Understanding Match Criteria</h3>
+                <ul class="list-disc ml-6 mb-4">
+                    <li><strong>Match - GSTN, Invoice No., Date</strong>: Exact match on GSTN, invoice number, and date.</li>
+                    <li><strong>Match - GSTN, Invoice No.</strong>: Match on GSTN and invoice number.</li>
+                    <li><strong>Match - GSTN, Date</strong>: Match on GSTN and date.</li>
+                    <li><strong>Match - GSTN</strong>: Match only on GSTN.</li>
+                    <li><strong>Unmatch - GSTN Not Exist</strong>: GSTN not found in other sheet.</li>
+                    <li><strong>Unmatch - Amt Diff</strong>: Amounts differ beyond allowed tolerance.</li>
+                    <li><strong>Unmatch</strong>: No match found.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Tool Section -->
+        <div id="tool-section" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h1>GST Reconciliation Tool 
+                    <span class="python-badge"><i class="fab fa-python"></i> Python Powered</span>
+                </h1>
+                <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+            <p id="expiry-message" style="display: none;" class="text-center"></p>
+            
+            <div class="control-panel">
+                <!-- Sample Download Button -->
+                <div class="button-container">
+                    <button id="download-sample" class="bg-green-600 hover:bg-green-700">
+                        <i class="fas fa-file-download"></i> Download Sample Excel File
+                    </button>
+                </div>
+                
+                <!-- Options Container -->
+                <div class="options-container">
+                    <div class="option-group">
+                        <label for="diff-allowed">Difference Allowed:</label>
+                        <input type="number" id="diff-allowed" value="1" min="0" class="w-20" placeholder="0 if blank">
+                        <span class="text-sm text-gray-600">(Default: 1)</span>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="detailed-reconciliation" name="detailed-reconciliation">
+                        <label for="detailed-reconciliation">Detailed Reconciliation</label>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enable-filter" name="enable-filter">
+                        <label for="enable-filter">Enable Filters</label>
+                    </div>
+                </div>
+                
+                <!-- Upload Section -->
+                <div class="upload-section">
+                    <label for="gst-file" class="block mb-2">
+                        <i class="fas fa-file-upload mr-2"></i>Upload GST Data File (GSTR-2B & GSTR-3B):
+                    </label>
+                    <input type="file" id="gst-file" accept=".xlsx" class="block w-full">
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="button-container">
+                    <button id="reconcile-btn">
+                        <i class="fab fa-python"></i> Reconcile with Python
+                    </button>
+                    <button id="reset-btn">
+                        <i class="fas fa-trash-alt"></i> Reset Data
+                    </button>
+                </div>
+            </div>
+            
+            <div class="data-container">
+                <h2>GSTR-2B Data (GST Portal)</h2>
+                <div id="gstr2b-container" class="table-container"></div>
+                
+                <h2>Client Data (GSTR-3B/Books)</h2>
+                <div id="gstr3b-container" class="table-container"></div>
+                
+                <h2>Summary</h2>
+                <div id="summary-container" class="table-container"></div>
+            </div>
+            
+            <div id="output-link" style="display: none;" class="text-center">
+                <h3 class="text-xl font-bold text-blue-800 mb-4">Reconciled Output:</h3>
+                <a id="download-output" href="#" class="inline-block">
+                    <i class="fas fa-file-excel mr-2"></i> Download Reconciled Data
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <button class="instructions-btn" onclick="showInstructions()" aria-label="View Instructions">
+        <i class="fas fa-info-circle"></i>
+    </button>
+    
+    <a href="https://wa.me/9716804520" class="whatsapp-btn" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+    
+    <div id="instructions-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="hideInstructions()">×</span>
+            <h2>GST Reconciliation Tool - Python Powered</h2>
+            <h3>How to Use the Tool</h3>
+            <ol>
+                <li>Download the sample Excel file from the link to understand the format.</li>
+                <li>Copy and paste your GSTR-2B data into the "GST Portal" sheet from column B.</li>
+                <li>Copy and paste your GSTR-3B or books data into the "Client Data" sheet from column B.</li>
+                <li>Upload your Excel file on the GST Reconciliation Tool website.</li>
+                <li>Set the "Difference Allowed" value (default is 1) to adjust matching tolerance.</li>
+                <li>Check "Detailed Reconciliation" for specific match criteria.</li>
+                <li>Review the tables (GSTR-2B, GSTR-3B, and Summary) for results.</li>
+                <li>Download the reconciled output file by clicking "Download Reconciled Data".</li>
+            </ol><br>
+            <h3>Matching Heading Criteria</h3><br>
+            <p><strong>When Detailed Reconciliation is checked:</strong></p>
+            <ol>
+                <li><strong>Match - GSTN, Invoice No., Date</strong> - Matches based on GSTN, Invoice No., and Date.</li>
+                <li><strong>Match - GSTN, Invoice No.</strong> - Matches based on GSTN and Invoice No.</li>
+                <li><strong>Match - GSTN, Date</strong> - Matches based on GSTN and Date.</li>
+                <li><strong>Match - GSTN</strong> - Matches based on GSTN only.</li>
+                <li><strong>Unmatch - GSTN Not Exist</strong> - GSTN not found in other sheet.</li>
+                <li><strong>Unmatch - Amt Diff</strong> - Amounts differ beyond allowed tolerance.</li>
+                <li><strong>Unmatch</strong> - Other reasons.</li>
+            </ol>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#"><i class="fas fa-phone mr-2"></i> Ph: 9716804520</a>
+                <a href="#"><i class="fas fa-envelope mr-2"></i> Email: Sumitgarg100000@gmail.com</a>
+                <a href="#"><i class="fas fa-map-marker-alt mr-2"></i> Address: Rohini, Delhi-110086</a>
+            </div>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+            </div>
+            <p style="margin-top: 10px; opacity: 0.8;">Powered by Python (Pyodide) for efficient large data processing</p>
+        </div>
+    </footer>
+
+    <script>
+        // Global Variables
+        let pyodide = null;
+        let gstr2bData = [];
+        let gstr3bData = [];
+        let filterEnabled = false;
+        const filters = {};
+
+        // Users Database
+        const users = {
+            "Sumitgarg": { password: "Garg@123", expiry: "2026-04-30" },
+            "user1": { password: "pass123", expiry: "2025-04-30" },
+            "user2": { password: "pass456", expiry: "2025-05-15" }
+        };
+
+        // Headers
+        const baseGstr2bHeaders = ['Match Criteria', 'GSTN', 'Name of Supplier', 'Invoice Number', 'Invoice type', 'Invoice Date', 'Invoice Value', 'Place of supply', 'Reverse Charge', 'Rate (%)', 'Taxable Value', 'IGST', 'CGST', 'SGST'];
+        const extendedGstr2bHeaders = ['Cess', 'GSTR-1/5 Period', 'GSTR-1/5 Filing Date', 'ITC Availability', 'Reason', 'Applicable % of Tax Rate', 'Source', 'IRN', 'IRN Date'];
+        const gstr2bHeaders = () => [...baseGstr2bHeaders, ...extendedGstr2bHeaders];
+
+        const baseGstr3bHeaders = ['Match Criteria', 'Invoice Date', 'GSTN', 'Name of Supplier', 'Invoice Number', 'Taxable Value', 'IGST', 'CGST', 'SGST', 'CESS'];
+        const extendedGstr3bHeaders = ['Invoice Value'];
+        const gstr3bHeaders = () => [...baseGstr3bHeaders, ...extendedGstr3bHeaders];
+
+        // Show Loading Overlay
+        function showLoading(text) {
+            document.getElementById('loading-text').textContent = text || 'Processing...';
+            document.getElementById('loading-overlay').classList.add('active');
+        }
+
+        // Hide Loading Overlay
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.remove('active');
+        }
+
+        // Initialize Pyodide
+        async function initPyodide() {
+            showLoading('Loading Python Environment...');
+            try {
+                pyodide = await loadPyodide();
+                console.log('Pyodide loaded successfully');
+                
+                // Load Python reconciliation code
+                await pyodide.runPythonAsync(getPythonCode());
+                console.log('Python reconciliation code loaded');
+                hideLoading();
+            } catch (error) {
+                console.error('Error loading Pyodide:', error);
+                hideLoading();
+                alert('Error loading Python environment. Please refresh the page.');
+            }
+        }
+
+        // Get Python Code for Reconciliation
+        function getPythonCode() {
+            return `
+import re
+from datetime import datetime
+
+# Global data storage
+gstr2b_data = []
+gstr3b_data = []
+reconciled_2b = []
+reconciled_3b = []
+
+# Headers
+GSTR2B_HEADERS = ['Match Criteria', 'GSTN', 'Name of Supplier', 'Invoice Number', 'Invoice type', 'Invoice Date', 'Invoice Value', 'Place of supply', 'Reverse Charge', 'Rate (%)', 'Taxable Value', 'IGST', 'CGST', 'SGST', 'Cess', 'GSTR-1/5 Period', 'GSTR-1/5 Filing Date', 'ITC Availability', 'Reason', 'Applicable % of Tax Rate', 'Source', 'IRN', 'IRN Date']
+GSTR3B_HEADERS = ['Match Criteria', 'Invoice Date', 'GSTN', 'Name of Supplier', 'Invoice Number', 'Taxable Value', 'IGST', 'CGST', 'SGST', 'CESS', 'Invoice Value']
+
+def parse_and_format_date(date_input):
+    """Parse various date formats and return dd-MMM-yyyy format"""
+    if date_input is None or date_input == '':
+        return ''
+    
+    # Handle Excel serial numbers
+    if isinstance(date_input, (int, float)) and 40000 < date_input < 50000:
+        from datetime import datetime, timedelta
+        excel_epoch = datetime(1899, 12, 30)
+        days = int(date_input)
+        date = excel_epoch + timedelta(days=days)
+        return date.strftime('%d-%b-%Y')
+    
+    # Handle string dates
+    if isinstance(date_input, str):
+        date_input = date_input.strip()
+        if not date_input:
+            return ''
+        
+        # Try different formats
+        formats = [
+            '%d-%b-%Y', '%d-%b-%y', '%d-%m-%Y', '%d-%m-%y',
+            '%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d', '%d.%m.%Y',
+            '%d.%m.%y', '%m/%d/%Y', '%m/%d/%y'
+        ]
+        
+        normalized = date_input.replace('/', '-').replace('.', '-')
+        
+        for fmt in formats:
+            try:
+                date = datetime.strptime(normalized, fmt)
+                return date.strftime('%d-%b-%Y')
+            except ValueError:
+                continue
+        
+        return date_input
+    
+    return str(date_input) if date_input else ''
+
+def normalize_invoice_number(inv_num):
+    """Remove special characters from invoice number for comparison"""
+    if inv_num is None:
+        return ''
+    return re.sub(r'[\\s/\\\\.,"?\\'']', '', str(inv_num))
+
+def safe_float(value):
+    """Safely convert value to float"""
+    try:
+        if value is None or value == '':
+            return 0.0
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
+
+def calculate_totals(data, inv_date, gstn, inv_num, is_3b):
+    """Calculate totals for matching by date, gstn, and invoice number"""
+    headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    inv_date_idx = headers.index('Invoice Date')
+    gstn_idx = headers.index('GSTN')
+    inv_num_idx = headers.index('Invoice Number')
+    taxable_idx = headers.index('Taxable Value')
+    igst_idx = headers.index('IGST')
+    cgst_idx = headers.index('CGST')
+    sgst_idx = headers.index('SGST')
+    cess_idx = headers.index('CESS') if 'CESS' in headers else headers.index('Cess') if 'Cess' in headers else -1
+    
+    result = {'count': 0, 'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0}
+    
+    for row in data:
+        if len(row) <= max(inv_date_idx, gstn_idx, inv_num_idx):
+            continue
+        row_date = parse_and_format_date(row[inv_date_idx]).lower().strip()
+        row_gstn = str(row[gstn_idx]).lower().strip()
+        row_inv_num = normalize_invoice_number(str(row[inv_num_idx]).lower().strip())
+        
+        if row_date == inv_date and row_gstn == gstn and row_inv_num == inv_num:
+            result['count'] += 1
+            result['taxable'] += safe_float(row[taxable_idx]) if taxable_idx < len(row) else 0
+            result['igst'] += safe_float(row[igst_idx]) if igst_idx < len(row) else 0
+            result['cgst'] += safe_float(row[cgst_idx]) if cgst_idx < len(row) else 0
+            result['sgst'] += safe_float(row[sgst_idx]) if sgst_idx < len(row) else 0
+            if cess_idx >= 0 and cess_idx < len(row):
+                result['cess'] += safe_float(row[cess_idx])
+    
+    return result
+
+def calculate_totals_by_inv(data, gstn, inv_num, is_3b):
+    """Calculate totals by GSTN and Invoice Number"""
+    headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    gstn_idx = headers.index('GSTN')
+    inv_num_idx = headers.index('Invoice Number')
+    taxable_idx = headers.index('Taxable Value')
+    igst_idx = headers.index('IGST')
+    cgst_idx = headers.index('CGST')
+    sgst_idx = headers.index('SGST')
+    cess_idx = headers.index('CESS') if 'CESS' in headers else headers.index('Cess') if 'Cess' in headers else -1
+    
+    result = {'count': 0, 'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0}
+    
+    for row in data:
+        if len(row) <= max(gstn_idx, inv_num_idx):
+            continue
+        row_gstn = str(row[gstn_idx]).lower().strip()
+        row_inv_num = normalize_invoice_number(str(row[inv_num_idx]).lower().strip())
+        
+        if row_gstn == gstn and row_inv_num == inv_num:
+            result['count'] += 1
+            result['taxable'] += safe_float(row[taxable_idx]) if taxable_idx < len(row) else 0
+            result['igst'] += safe_float(row[igst_idx]) if igst_idx < len(row) else 0
+            result['cgst'] += safe_float(row[cgst_idx]) if cgst_idx < len(row) else 0
+            result['sgst'] += safe_float(row[sgst_idx]) if sgst_idx < len(row) else 0
+            if cess_idx >= 0 and cess_idx < len(row):
+                result['cess'] += safe_float(row[cess_idx])
+    
+    return result
+
+def calculate_totals_by_gstn_date(data, inv_date, gstn, is_3b):
+    """Calculate totals by GSTN and Date"""
+    headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    inv_date_idx = headers.index('Invoice Date')
+    gstn_idx = headers.index('GSTN')
+    taxable_idx = headers.index('Taxable Value')
+    igst_idx = headers.index('IGST')
+    cgst_idx = headers.index('CGST')
+    sgst_idx = headers.index('SGST')
+    cess_idx = headers.index('CESS') if 'CESS' in headers else headers.index('Cess') if 'Cess' in headers else -1
+    
+    result = {'count': 0, 'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0}
+    
+    for row in data:
+        if len(row) <= max(inv_date_idx, gstn_idx):
+            continue
+        row_date = parse_and_format_date(row[inv_date_idx]).lower().strip()
+        row_gstn = str(row[gstn_idx]).lower().strip()
+        
+        if row_date == inv_date and row_gstn == gstn:
+            result['count'] += 1
+            result['taxable'] += safe_float(row[taxable_idx]) if taxable_idx < len(row) else 0
+            result['igst'] += safe_float(row[igst_idx]) if igst_idx < len(row) else 0
+            result['cgst'] += safe_float(row[cgst_idx]) if cgst_idx < len(row) else 0
+            result['sgst'] += safe_float(row[sgst_idx]) if sgst_idx < len(row) else 0
+            if cess_idx >= 0 and cess_idx < len(row):
+                result['cess'] += safe_float(row[cess_idx])
+    
+    return result
+
+def calculate_totals_by_gstn(data, gstn, is_3b):
+    """Calculate totals by GSTN only"""
+    headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    gstn_idx = headers.index('GSTN')
+    taxable_idx = headers.index('Taxable Value')
+    igst_idx = headers.index('IGST')
+    cgst_idx = headers.index('CGST')
+    sgst_idx = headers.index('SGST')
+    cess_idx = headers.index('CESS') if 'CESS' in headers else headers.index('Cess') if 'Cess' in headers else -1
+    
+    result = {'count': 0, 'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0}
+    
+    for row in data:
+        if len(row) <= gstn_idx:
+            continue
+        row_gstn = str(row[gstn_idx]).lower().strip()
+        
+        if row_gstn == gstn:
+            result['count'] += 1
+            result['taxable'] += safe_float(row[taxable_idx]) if taxable_idx < len(row) else 0
+            result['igst'] += safe_float(row[igst_idx]) if igst_idx < len(row) else 0
+            result['cgst'] += safe_float(row[cgst_idx]) if cgst_idx < len(row) else 0
+            result['sgst'] += safe_float(row[sgst_idx]) if sgst_idx < len(row) else 0
+            if cess_idx >= 0 and cess_idx < len(row):
+                result['cess'] += safe_float(row[cess_idx])
+    
+    return result
+
+def check_totals(source, compare, diff_allowed):
+    """Check if totals match within allowed difference"""
+    return (abs(source['taxable'] - compare['taxable']) <= diff_allowed and
+            abs(source['igst'] - compare['igst']) <= diff_allowed and
+            abs(source['cgst'] - compare['cgst']) <= diff_allowed and
+            abs(source['sgst'] - compare['sgst']) <= diff_allowed and
+            abs(source['cess'] - compare['cess']) <= diff_allowed)
+
+def find_match(row, source_data, compare_data, is_3b, diff_allowed, detailed):
+    """Find match for a row"""
+    source_headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    compare_headers = GSTR2B_HEADERS if is_3b else GSTR3B_HEADERS
+    
+    inv_date_idx = source_headers.index('Invoice Date')
+    gstn_idx = source_headers.index('GSTN')
+    inv_num_idx = source_headers.index('Invoice Number')
+    compare_gstn_idx = compare_headers.index('GSTN')
+    
+    if len(row) <= max(inv_date_idx, gstn_idx, inv_num_idx):
+        return 'Unmatch'
+    
+    inv_date = parse_and_format_date(row[inv_date_idx]).lower().strip()
+    gstn = str(row[gstn_idx]).lower().strip()
+    inv_num = normalize_invoice_number(str(row[inv_num_idx]).lower().strip())
+    
+    # 1. Match - GSTN, Invoice No., Date
+    source_totals = calculate_totals(source_data, inv_date, gstn, inv_num, is_3b)
+    compare_totals = calculate_totals(compare_data, inv_date, gstn, inv_num, not is_3b)
+    
+    if source_totals['count'] > 0 and compare_totals['count'] > 0:
+        if check_totals(source_totals, compare_totals, diff_allowed):
+            return 'Match - GSTN, Invoice No., Date' if detailed else 'Match'
+    
+    # 2. Match - GSTN, Invoice No.
+    inv_totals = calculate_totals_by_inv(source_data, gstn, inv_num, is_3b)
+    compare_inv_totals = calculate_totals_by_inv(compare_data, gstn, inv_num, not is_3b)
+    
+    if inv_totals['count'] > 0 and compare_inv_totals['count'] > 0:
+        if check_totals(inv_totals, compare_inv_totals, diff_allowed):
+            return 'Match - GSTN, Invoice No.' if detailed else 'Match'
+    
+    # 3. Match - GSTN, Date
+    gstn_date_totals = calculate_totals_by_gstn_date(source_data, inv_date, gstn, is_3b)
+    compare_gstn_date_totals = calculate_totals_by_gstn_date(compare_data, inv_date, gstn, not is_3b)
+    
+    if gstn_date_totals['count'] > 0 and compare_gstn_date_totals['count'] > 0:
+        if check_totals(gstn_date_totals, compare_gstn_date_totals, diff_allowed):
+            return 'Match - GSTN, Date' if detailed else 'Match'
+    
+    # 4. Match - GSTN
+    gstn_totals = calculate_totals_by_gstn(source_data, gstn, is_3b)
+    compare_gstn_totals = calculate_totals_by_gstn(compare_data, gstn, not is_3b)
+    
+    if gstn_totals['count'] > 0 and compare_gstn_totals['count'] > 0:
+        if check_totals(gstn_totals, compare_gstn_totals, diff_allowed):
+            return 'Match - GSTN' if detailed else 'Match'
+    
+    # 5. Unmatch - GSTN Not Exist
+    gstn_exists = False
+    for r in compare_data:
+        if len(r) > compare_gstn_idx and str(r[compare_gstn_idx]).lower().strip() == gstn:
+            gstn_exists = True
+            break
+    
+    if not gstn_exists:
+        return 'Unmatch - GSTN Not Exist'
+    
+    # 6. Unmatch - Amt Diff
+    amt_diff_totals = calculate_totals_by_inv(source_data, gstn, inv_num, is_3b)
+    compare_amt_diff_totals = calculate_totals_by_inv(compare_data, gstn, inv_num, not is_3b)
+    
+    if amt_diff_totals['count'] > 0 and compare_amt_diff_totals['count'] > 0:
+        if not check_totals(amt_diff_totals, compare_amt_diff_totals, diff_allowed):
+            return 'Unmatch - Amt Diff'
+    
+    # 7. Unmatch
+    return 'Unmatch'
+
+def set_data(gstr2b_json, gstr3b_json):
+    """Set data from JSON strings"""
+    global gstr2b_data, gstr3b_data
+    import json
+    gstr2b_data = json.loads(gstr2b_json)
+    gstr3b_data = json.loads(gstr3b_json)
+    return True
+
+def reconcile(diff_allowed, detailed):
+    """Main reconciliation function"""
+    global gstr2b_data, gstr3b_data, reconciled_2b, reconciled_3b
+    import json
+    
+    reconciled_2b = []
+    reconciled_3b = []
+    
+    # Process GSTR-2B data
+    for row in gstr2b_data:
+        match = find_match(row, gstr2b_data, gstr3b_data, False, diff_allowed, detailed)
+        new_row = [match] + list(row[1:]) if len(row) > 1 else [match]
+        reconciled_2b.append(new_row)
+    
+    # Process GSTR-3B data
+    for row in gstr3b_data:
+        match = find_match(row, gstr3b_data, gstr2b_data, True, diff_allowed, detailed)
+        new_row = [match] + list(row[1:]) if len(row) > 1 else [match]
+        reconciled_3b.append(new_row)
+    
+    return json.dumps({
+        'gstr2b': reconciled_2b,
+        'gstr3b': reconciled_3b
+    })
+
+def calculate_summary(data, is_3b, detailed):
+    """Calculate summary statistics"""
+    headers = GSTR3B_HEADERS if is_3b else GSTR2B_HEADERS
+    taxable_idx = headers.index('Taxable Value')
+    igst_idx = headers.index('IGST')
+    cgst_idx = headers.index('CGST')
+    sgst_idx = headers.index('SGST')
+    cess_idx = headers.index('CESS') if 'CESS' in headers else headers.index('Cess') if 'Cess' in headers else -1
+    
+    criteria = ['Match - GSTN, Invoice No., Date', 'Match - GSTN, Invoice No.', 'Match - GSTN, Date', 'Match - GSTN', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'] if detailed else ['Match', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch']
+    
+    summary = {c: {'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0} for c in criteria}
+    
+    for row in data:
+        if len(row) == 0:
+            continue
+        match = row[0]
+        if not detailed and match in ['Match - GSTN, Invoice No., Date', 'Match - GSTN, Invoice No.', 'Match - GSTN, Date', 'Match - GSTN']:
+            match = 'Match'
+        
+        if match not in summary:
+            match = 'Unmatch'
+        
+        summary[match]['taxable'] += safe_float(row[taxable_idx]) if taxable_idx < len(row) else 0
+        summary[match]['igst'] += safe_float(row[igst_idx]) if igst_idx < len(row) else 0
+        summary[match]['cgst'] += safe_float(row[cgst_idx]) if cgst_idx < len(row) else 0
+        summary[match]['sgst'] += safe_float(row[sgst_idx]) if sgst_idx < len(row) else 0
+        if cess_idx >= 0 and cess_idx < len(row):
+            summary[match]['cess'] += safe_float(row[cess_idx])
+    
+    total = {'taxable': 0, 'igst': 0, 'cgst': 0, 'sgst': 0, 'cess': 0}
+    for c in criteria:
+        total['taxable'] += summary[c]['taxable']
+        total['igst'] += summary[c]['igst']
+        total['cgst'] += summary[c]['cgst']
+        total['sgst'] += summary[c]['sgst']
+        total['cess'] += summary[c]['cess']
+    
+    return {'summary': summary, 'total': total}
+
+def get_summary(detailed):
+    """Get summary for both datasets"""
+    global reconciled_2b, reconciled_3b
+    import json
+    
+    gstr2b_summary = calculate_summary(reconciled_2b, False, detailed)
+    gstr3b_summary = calculate_summary(reconciled_3b, True, detailed)
+    
+    return json.dumps({
+        'gstr2b': gstr2b_summary,
+        'gstr3b': gstr3b_summary
+    })
+
+print("Python GST Reconciliation module loaded successfully!")
+`;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initPyodide();
+            
+            // Check login state
+            const loggedInUser = localStorage.getItem("loggedInUser");
+            const isFreeService = localStorage.getItem("isFreeService") === "true";
+            
+            // Restore data from localStorage
+            gstr2bData = localStorage.getItem('gstr2bData') ? JSON.parse(localStorage.getItem('gstr2bData')) : [];
+            gstr3bData = localStorage.getItem('gstr3bData') ? JSON.parse(localStorage.getItem('gstr3bData')) : [];
+            
+            if (loggedInUser) {
+                if (isFreeService) {
+                    showTool();
+                    restrictFreeServiceFeatures();
+                } else if (checkSubscription(loggedInUser)) {
+                    showTool();
+                } else {
+                    showLogin();
+                }
+            } else {
+                showLogin();
+            }
+        });
+
+        // Login Functions
+        function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const error = document.getElementById("error");
+
+            if (users[username] && users[username].password === password) {
+                if (checkSubscription(username)) {
+                    localStorage.setItem("loggedInUser", username);
+                    localStorage.setItem("isFreeService", "false");
+                    showTool();
+
+                    const expiryMessage = document.getElementById("expiry-message");
+                    if (expiryMessage) {
+                        expiryMessage.textContent = `Subscription Expiry: ${users[username].expiry}`;
+                        expiryMessage.style.display = "block";
+                        setTimeout(() => {
+                            expiryMessage.style.display = "none";
+                        }, 10000);
+                    }
+
+                    document.getElementById("username").value = "";
+                    document.getElementById("password").value = "";
+                    error.textContent = "";
+                } else {
+                    error.textContent = "Your subscription has expired!";
+                }
+            } else {
+                error.textContent = "Invalid username or password!";
+            }
+        }
+
+        function freeServiceLogin() {
+            localStorage.setItem("loggedInUser", "freeServiceUser");
+            localStorage.setItem("isFreeService", "true");
+            showTool();
+            restrictFreeServiceFeatures();
+            document.getElementById("username").value = "";
+            document.getElementById("password").value = "";
+            document.getElementById("error").textContent = "";
+        }
+
+        function checkSubscription(username) {
+            const expiryDate = new Date(users[username].expiry);
+            const today = new Date();
+            return today <= expiryDate;
+        }
+
+        function logout() {
+            localStorage.removeItem("loggedInUser");
+            localStorage.removeItem("gstr2bData");
+            localStorage.removeItem("gstr3bData");
+            localStorage.removeItem("isFreeService");
+            gstr2bData = [];
+            gstr3bData = [];
+            resetData();
+            showLogin();
+            document.getElementById("username").value = "";
+            document.getElementById("password").value = "";
+            document.getElementById("error").textContent = "";
+        }
+
+        function showLogin() {
+            document.getElementById("login-section").classList.remove("hidden");
+            document.getElementById("tool-section").classList.add("hidden");
+        }
+
+        function showTool() {
+            document.getElementById("login-section").classList.add("hidden");
+            document.getElementById("tool-section").classList.remove("hidden");
+
+            const isFreeService = localStorage.getItem("isFreeService") === "true";
+            const detailedCheckbox = document.getElementById("detailed-reconciliation");
+            detailedCheckbox.checked = localStorage.getItem('detailedReconciliation') === 'true' && !isFreeService;
+
+            // Setup event listeners
+            document.getElementById('gst-file').addEventListener('change', handleFileUpload);
+            document.getElementById('reconcile-btn').addEventListener('click', reconcileData);
+            document.getElementById('download-sample').addEventListener('click', generateSampleFile);
+            document.getElementById('reset-btn').addEventListener('click', resetData);
+            document.getElementById('detailed-reconciliation').addEventListener('change', function() {
+                localStorage.setItem('detailedReconciliation', this.checked);
+                if (gstr2bData.length > 0 || gstr3bData.length > 0) {
+                    reconcileData();
+                }
+            });
+            document.getElementById('enable-filter').addEventListener('change', function() {
+                filterEnabled = this.checked;
+                toggleFilters();
+            });
+
+            // Restore previous data
+            if (gstr2bData.length > 0) {
+                displayData(gstr2bData, 'gstr2b-container', gstr2bHeaders(), 'gstr2b');
+            }
+            if (gstr3bData.length > 0) {
+                displayData(gstr3bData, 'gstr3b-container', gstr3bHeaders(), 'gstr3b');
+            }
+            if (gstr2bData.length > 0 || gstr3bData.length > 0) {
+                reconcileData();
+            }
+
+            if (!isFreeService) {
+                document.getElementById('detailed-reconciliation').disabled = false;
+                document.getElementById('enable-filter').disabled = false;
+                document.getElementById('diff-allowed').disabled = false;
+            }
+            restrictFreeServiceFeatures();
+        }
+
+        function restrictFreeServiceFeatures() {
+            const isFreeService = localStorage.getItem("isFreeService") === "true";
+
+            if (isFreeService) {
+                document.getElementById("detailed-reconciliation").checked = false;
+                document.getElementById("detailed-reconciliation").disabled = true;
+                document.getElementById("enable-filter").checked = false;
+                document.getElementById("enable-filter").disabled = true;
+                document.getElementById("diff-allowed").value = "1";
+                document.getElementById("diff-allowed").disabled = true;
+                filterEnabled = false;
+                toggleFilters();
+
+                const toolSection = document.getElementById("tool-section");
+                if (!document.getElementById("free-service-notice")) {
+                    const notice = document.createElement("p");
+                    notice.id = "free-service-notice";
+                    notice.style.color = "#e53935";
+                    notice.style.textAlign = "center";
+                    notice.style.padding = "10px";
+                    notice.style.margin = "10px 0";
+                    notice.style.backgroundColor = "#ffebee";
+                    notice.style.borderRadius = "8px";
+                    notice.style.borderLeft = "4px solid #e53935";
+                    notice.textContent = "In Free Service: Detailed Reconciliation, Enable Filter & sorting option, alteration of Difference Allowed limit and editable fields are disabled.";
+                    toolSection.insertBefore(notice, toolSection.querySelector(".control-panel"));
+                }
+            }
+        }
+
+        function resetData() {
+            gstr2bData = [];
+            gstr3bData = [];
+            localStorage.removeItem('gstr2bData');
+            localStorage.removeItem('gstr3bData');
+            document.getElementById('gstr2b-container').innerHTML = '';
+            document.getElementById('gstr3b-container').innerHTML = '';
+            document.getElementById('summary-container').innerHTML = '';
+            document.getElementById('output-link').style.display = 'none';
+            document.getElementById('gst-file').value = '';
+            document.getElementById('diff-allowed').value = '1';
+        }
+
+        // Date Parsing Function
+        function parseAndFormatDate(dateInput) {
+            if (!dateInput || dateInput === '') return '';
+
+            function formatDate(date) {
+                const day = String(date.getDate()).padStart(2, '0');
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = monthNames[date.getMonth()];
+                const year = date.getFullYear();
+                return `${day}-${month}-${year}`;
+            }
+
+            if (typeof dateInput === 'number' && dateInput > 40000 && dateInput < 50000) {
+                const excelEpoch = new Date(1899, 11, 30);
+                const days = Math.floor(dateInput);
+                const date = new Date(excelEpoch.getTime() + days * 86400 * 1000);
+                if (dateInput <= 60) date.setDate(date.getDate() - 1);
+                return formatDate(date);
+            }
+
+            if (typeof dateInput === 'string') {
+                const normalizedInput = dateInput.trim().replace(/[\.\/]/g, '-');
+                let date;
+                
+                const mmmRegex = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/;
+                if (mmmRegex.test(normalizedInput)) {
+                    const [, day, monthStr, year] = normalizedInput.match(mmmRegex);
+                    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                    const monthIndex = monthNames.indexOf(monthStr.toLowerCase());
+                    if (monthIndex !== -1) {
+                        const fullYear = year.length === 2 ? (parseInt(year) < 50 ? `20${year}` : `19${year}`) : year;
+                        date = new Date(parseInt(fullYear), monthIndex, parseInt(day));
+                    }
+                }
+
+                if (!date || isNaN(date.getTime())) {
+                    const dmyRegex = /^(\d{1,2})-(\d{1,2})-(\d{2,4})$/;
+                    if (dmyRegex.test(normalizedInput)) {
+                        const [, day, month, year] = normalizedInput.match(dmyRegex);
+                        const fullYear = year.length === 2 ? (parseInt(year) < 50 ? `20${year}` : `19${year}`) : year;
+                        date = new Date(parseInt(fullYear), parseInt(month) - 1, parseInt(day));
+                    }
+                }
+
+                if (!date || isNaN(date.getTime())) {
+                    date = new Date(normalizedInput);
+                }
+
+                if (date && !isNaN(date.getTime())) {
+                    return formatDate(date);
+                }
+                return '';
+            }
+
+            if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+                return formatDate(dateInput);
+            }
+
+            return '';
+        }
+
+        // File Handling
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading('Reading Excel file...');
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', dateNF: 'dd-mmm-yyyy', raw: true });
+
+                // Process GSTR-2B Data
+                const gstr2bSheet = workbook.Sheets['GST Portal'];
+                if (gstr2bSheet) {
+                    const rawData = XLSX.utils.sheet_to_json(gstr2bSheet, { header: 1, defval: '' });
+                    gstr2bData = rawData.slice(1).map(row => {
+                        const normalized = normalizeRow(row, gstr2bHeaders().length);
+                        const dateIndices = [5, 16, 22]; // Invoice Date, GSTR-1/5 Filing Date, IRN Date
+                        dateIndices.forEach(idx => {
+                            if (normalized[idx] !== '') {
+                                normalized[idx] = parseAndFormatDate(normalized[idx]);
+                            }
+                        });
+                        return normalized;
+                    });
+                    localStorage.setItem('gstr2bData', JSON.stringify(gstr2bData));
+                    displayData(gstr2bData, 'gstr2b-container', gstr2bHeaders(), 'gstr2b');
+                }
+
+                // Process GSTR-3B Data
+                const gstr3bSheet = workbook.Sheets['Client Data'];
+                if (gstr3bSheet) {
+                    const rawData = XLSX.utils.sheet_to_json(gstr3bSheet, { header: 1, defval: '' });
+                    gstr3bData = rawData.slice(1).map(row => {
+                        const normalized = normalizeRow(row, gstr3bHeaders().length);
+                        if (normalized[1] !== '') {
+                            normalized[1] = parseAndFormatDate(normalized[1]);
+                        }
+                        return normalized;
+                    });
+                    localStorage.setItem('gstr3bData', JSON.stringify(gstr3bData));
+                    displayData(gstr3bData, 'gstr3b-container', gstr3bHeaders(), 'gstr3b');
+                }
+
+                hideLoading();
+                reconcileData();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function normalizeRow(row, headerLength) {
+            const normalized = new Array(headerLength).fill('');
+            row.forEach((cell, index) => {
+                if (index < headerLength) normalized[index] = cell === undefined || cell === null ? '' : cell;
+            });
+            return normalized;
+        }
+
+        // Display Data
+        function displayData(data, containerId, headers, sheetType) {
+            const container = document.getElementById(containerId);
+            const isFreeService = localStorage.getItem("isFreeService") === "true";
+            let html = '<table><thead><tr>';
+            headers.forEach(header => html += `<th>${header}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            data.forEach((row, rowIndex) => {
+                html += `<tr data-row="${rowIndex}" data-sheet="${sheetType}">`;
+                headers.forEach((_, colIndex) => {
+                    const cell = row[colIndex];
+                    const isDateColumn = headers[colIndex] === 'Invoice Date' ||
+                                        headers[colIndex] === 'GSTR-1/5 Filing Date' ||
+                                        headers[colIndex] === 'IRN Date';
+                    const value = isDateColumn ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
+                    const isEditable = colIndex > 0 && !isFreeService;
+                    html += `<td contenteditable="${isEditable}" data-col="${colIndex}">${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            
+            const table = container.querySelector('table');
+            table.addEventListener('input', handleCellEdit);
+            if (filterEnabled) toggleFilters();
+        }
+
+        function handleCellEdit(event) {
+            const target = event.target;
+            const isFreeService = localStorage.getItem("isFreeService") === "true";
+
+            if (isFreeService) {
+                event.preventDefault();
+                target.blur();
+                return;
+            }
+
+            if (target.tagName === 'TD' && target.getAttribute('contenteditable') === 'true') {
+                const rowIndex = parseInt(target.parentElement.getAttribute('data-row'), 10);
+                const colIndex = parseInt(target.getAttribute('data-col'), 10);
+                const sheetType = target.parentElement.getAttribute('data-sheet');
+                const headers = sheetType === 'gstr2b' ? gstr2bHeaders() : gstr3bHeaders();
+                const isDateColumn = headers[colIndex] === 'Invoice Date' ||
+                                    headers[colIndex] === 'GSTR-1/5 Filing Date' ||
+                                    headers[colIndex] === 'IRN Date';
+                let newValue = target.textContent.trim();
+
+                if (isDateColumn && newValue !== '') {
+                    newValue = parseAndFormatDate(newValue);
+                    target.textContent = newValue;
+                }
+
+                if (sheetType === 'gstr2b') {
+                    gstr2bData[rowIndex][colIndex] = newValue;
+                    localStorage.setItem('gstr2bData', JSON.stringify(gstr2bData));
+                } else if (sheetType === 'gstr3b') {
+                    gstr3bData[rowIndex][colIndex] = newValue;
+                    localStorage.setItem('gstr3bData', JSON.stringify(gstr3bData));
+                }
+                reconcileData();
+            }
+        }
+
+        // RECONCILIATION - USING PYTHON
+        async function reconcileData() {
+            if (gstr2bData.length === 0 && gstr3bData.length === 0) return;
+            if (!pyodide) {
+                alert('Python environment not loaded. Please wait or refresh the page.');
+                return;
+            }
+
+            showLoading('Reconciling data with Python...');
+
+            try {
+                const diffInput = document.getElementById('diff-allowed').value;
+                const diffAllowed = diffInput === '' ? 0 : Number(diffInput) || 1;
+                const detailed = document.getElementById('detailed-reconciliation').checked;
+
+                // Send data to Python
+                pyodide.runPython(`set_data('${JSON.stringify(gstr2bData)}', '${JSON.stringify(gstr3bData)}')`);
+
+                // Run reconciliation in Python
+                const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${detailed})`);
+                const result = JSON.parse(resultJson);
+
+                // Update tables with reconciled data
+                const gstr2bTable = document.querySelector('#gstr2b-container table tbody');
+                const gstr3bTable = document.querySelector('#gstr3b-container table tbody');
+
+                if (gstr2bTable) {
+                    result.gstr2b.forEach((row, index) => {
+                        if (gstr2bTable.rows[index]) {
+                            updateRow(gstr2bTable.rows[index], row, detailed);
+                        }
+                    });
+                }
+
+                if (gstr3bTable) {
+                    result.gstr3b.forEach((row, index) => {
+                        if (gstr3bTable.rows[index]) {
+                            updateRow(gstr3bTable.rows[index], row, detailed);
+                        }
+                    });
+                }
+
+                // Get and display summary
+                const summaryJson = pyodide.runPython(`get_summary(${detailed})`);
+                const summaryData = JSON.parse(summaryJson);
+                displaySummary(summaryData.gstr2b, summaryData.gstr3b, detailed);
+
+                // Generate output
+                generateOutput(result.gstr2b, result.gstr3b, detailed);
+
+                hideLoading();
+            } catch (error) {
+                hideLoading();
+                console.error('Reconciliation error:', error);
+                alert('Error during reconciliation. Please check your data format.');
+            }
+        }
+
+        function updateRow(rowElement, newRow, detailed) {
+            Array.from(rowElement.cells).forEach((cell, index) => {
+                cell.textContent = newRow[index] !== undefined ? newRow[index] : '';
+            });
+            colorRow(rowElement, newRow[0], detailed);
+        }
+
+        function colorRow(rowElement, match, detailed) {
+            let backgroundColor = '';
+            let textColor = 'white';
+
+            if (detailed) {
+                switch (match) {
+                    case 'Match - GSTN, Invoice No., Date':
+                        backgroundColor = '#00ced1';
+                        break;
+                    case 'Match - GSTN, Invoice No.':
+                        backgroundColor = '#4b0082';
+                        break;
+                    case 'Match - GSTN, Date':
+                        backgroundColor = '#32cd32';
+                        break;
+                    case 'Match - GSTN':
+                        backgroundColor = '#ffbf00';
+                        textColor = 'black';
+                        break;
+                    case 'Unmatch - GSTN Not Exist':
+                        backgroundColor = '#dc143c';
+                        break;
+                    case 'Unmatch - Amt Diff':
+                        backgroundColor = '#ff4500';
+                        break;
+                    default:
+                        backgroundColor = '#ff00ff';
+                        break;
+                }
+            } else {
+                switch (match) {
+                    case 'Match':
+                        backgroundColor = '#00ced1';
+                        break;
+                    case 'Unmatch - GSTN Not Exist':
+                        backgroundColor = '#dc143c';
+                        break;
+                    case 'Unmatch - Amt Diff':
+                        backgroundColor = '#ff4500';
+                        break;
+                    default:
+                        backgroundColor = '#ff00ff';
+                        break;
+                }
+            }
+
+            Array.from(rowElement.cells).forEach(cell => {
+                cell.style.backgroundColor = backgroundColor;
+                cell.style.color = textColor;
+            });
+        }
+
+        function displaySummary(gstr2bSummary, gstr3bSummary, detailed) {
+            const container = document.getElementById('summary-container');
+            let html = '<table><thead><tr>';
+            html += '<th rowspan="2">Particulars</th>';
+            html += '<th colspan="5">GST Portal</th>';
+            html += '<th colspan="5">Client Data</th>';
+            html += '</tr><tr>';
+            ['Taxable Value', 'IGST', 'CGST', 'SGST', 'CESS'].forEach(header => html += `<th>${header}</th>`);
+            ['Taxable Value', 'IGST', 'CGST', 'SGST', 'CESS'].forEach(header => html += `<th>${header}</th>`);
+            html += '</tr></thead><tbody>';
+
+            const criteria = detailed ?
+                ['Match - GSTN, Invoice No., Date', 'Match - GSTN, Invoice No.', 'Match - GSTN, Date', 'Match - GSTN', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'] :
+                ['Match', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'];
+
+            criteria.forEach(criterion => {
+                let backgroundColor = '';
+                let textColor = 'white';
+
+                if (detailed) {
+                    switch (criterion) {
+                        case 'Match - GSTN, Invoice No., Date': backgroundColor = '#00ced1'; break;
+                        case 'Match - GSTN, Invoice No.': backgroundColor = '#4b0082'; break;
+                        case 'Match - GSTN, Date': backgroundColor = '#32cd32'; break;
+                        case 'Match - GSTN': backgroundColor = '#ffbf00'; textColor = 'black'; break;
+                        case 'Unmatch - GSTN Not Exist': backgroundColor = '#dc143c'; break;
+                        case 'Unmatch - Amt Diff': backgroundColor = '#ff4500'; break;
+                        default: backgroundColor = '#ff00ff'; break;
+                    }
+                } else {
+                    switch (criterion) {
+                        case 'Match': backgroundColor = '#00ced1'; break;
+                        case 'Unmatch - GSTN Not Exist': backgroundColor = '#dc143c'; break;
+                        case 'Unmatch - Amt Diff': backgroundColor = '#ff4500'; break;
+                        default: backgroundColor = '#ff00ff'; break;
+                    }
+                }
+
+                const g2b = gstr2bSummary.summary[criterion] || {taxable: 0, igst: 0, cgst: 0, sgst: 0, cess: 0};
+                const g3b = gstr3bSummary.summary[criterion] || {taxable: 0, igst: 0, cgst: 0, sgst: 0, cess: 0};
+
+                html += `<tr style="background-color: ${backgroundColor}; color: ${textColor};">`;
+                html += `<td>${criterion}</td>`;
+                html += `<td>${g2b.taxable.toFixed(2)}</td>`;
+                html += `<td>${g2b.igst.toFixed(2)}</td>`;
+                html += `<td>${g2b.cgst.toFixed(2)}</td>`;
+                html += `<td>${g2b.sgst.toFixed(2)}</td>`;
+                html += `<td>${g2b.cess.toFixed(2)}</td>`;
+                html += `<td>${g3b.taxable.toFixed(2)}</td>`;
+                html += `<td>${g3b.igst.toFixed(2)}</td>`;
+                html += `<td>${g3b.cgst.toFixed(2)}</td>`;
+                html += `<td>${g3b.sgst.toFixed(2)}</td>`;
+                html += `<td>${g3b.cess.toFixed(2)}</td>`;
+                html += '</tr>';
+            });
+
+            html += '<tr style="font-weight: bold;">';
+            html += '<td><strong>Total</strong></td>';
+            html += `<td><strong>${gstr2bSummary.total.taxable.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr2bSummary.total.igst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr2bSummary.total.cgst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr2bSummary.total.sgst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr2bSummary.total.cess.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr3bSummary.total.taxable.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr3bSummary.total.igst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr3bSummary.total.cgst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr3bSummary.total.sgst.toFixed(2)}</strong></td>`;
+            html += `<td><strong>${gstr3bSummary.total.cess.toFixed(2)}</strong></td>`;
+            html += '</tr>';
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // Generate Sample File
+        function generateSampleFile(event) {
+            event.preventDefault();
+            const wb = XLSX.utils.book_new();
+            
+            const gstr2bSampleHeaders = gstr2bHeaders();
+            const gstr2bSample = [
+                gstr2bSampleHeaders,
+                ['Match - GSTN, Invoice No., Date', '27AABCU9603R1ZM', 'Supplier A', 'INV001', 'Regular', '01-Mar-2025', 11800, 'Maharashtra', 'N', 18, 10000, 1800, 0, 0, 0, 'Mar-2025', '15-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN001', '02-Mar-2025'],
+                ['Match - GSTN, Invoice No.', '29XYZ1234P1ZQ', 'Supplier B', 'INV002', 'Regular', '02-Mar-2025', 23600, 'Karnataka', 'N', 9, 20000, 0, 1800, 1800, 0, 'Mar-2025', '16-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-5', 'IRN003', '03-Mar-2025'],
+                ['Match - GSTN, Date', '33ABCDE5678F1Z5', 'Supplier C', 'INV0003', 'Regular', '04-Mar-2025', 14160, 'Tamil Nadu', 'N', 18, 12000, 2160, 0, 0, 0, 'Mar-2025', '17-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN005', '05-Mar-2025'],
+                ['Match - GSTN', '27AABCU9603R2ZM', 'Supplier C', 'INV0005', 'Regular', '31-Mar-2025', 9440, 'Maharashtra', 'N', 18, 8000, 1440, 0, 0, 0, 'Mar-2025', '31-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN007', '06-Mar-2025'],
+                ['Unmatch - GSTN Not Exist', '99NOTEXIST1234Z', 'Supplier X', 'INV007', 'Regular', '07-Mar-2025', 11800, 'Delhi', 'N', 18, 10000, 1800, 0, 0, 0, 'Mar-2025', '19-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN009', '08-Mar-2025'],
+                ['Unmatch - Amt Diff', '27AABCU9603R1ZM', 'Supplier A', 'INV009', 'Regular', '09-Mar-2025', 11802, 'Maharashtra', 'N', 18, 10000, 1802, 0, 0, 0, 'Mar-2025', '20-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN011', '10-Mar-2025'],
+                ['Unmatch', '27AABCU9603R1ZM', 'Supplier A', 'INV010', 'Regular', '10-Mar-2025', 7080, 'Maharashtra', 'N', 18, 6000, 1080, 0, 0, 0, 'Mar-2025', '21-Mar-2025', 'Yes', 'N/A', 0, 'GSTR-1', 'IRN013', '11-Mar-2025'],
+            ];
+            const ws1 = XLSX.utils.aoa_to_sheet(gstr2bSample);
+            XLSX.utils.book_append_sheet(wb, ws1, 'GST Portal');
+
+            const gstr3bSampleHeaders = gstr3bHeaders();
+            const gstr3bSample = [
+                gstr3bSampleHeaders,
+                ['Match - GSTN, Invoice No., Date', '01-Mar-2025', '27AABCU9603R1ZM', 'Supplier A', 'INV001', 10000, 1800, 0, 0, 0, 11800],
+                ['Match - GSTN, Invoice No.', '03-Mar-2025', '29XYZ1234P1ZQ', 'Supplier B', 'INV002', 20000, 0, 1800, 1800, 200, 23600],
+                ['Match - GSTN, Date', '04-Mar-2025', '33ABCDE5678F1Z5', 'Supplier C', 'INV003', 12000, 2160, 0, 0, 0, 14160],
+                ['Match - GSTN', '05-Mar-2025', '27AABCU9603R2ZM', 'Supplier C', 'INV005', 8000, 1440, 0, 0, 0, 9440],
+                ['Unmatch - GSTN Not Exist', '07-Mar-2025', '88UNIQUE1234Z', 'Supplier Z', 'INV015', 10000, 1800, 0, 0, 0, 11800],
+                ['Unmatch - Amt Diff', '09-Mar-2025', '27AABCU9603R1ZM', 'Supplier A', 'INV009', 10000, 1800, 0, 0, 200, 11800],
+                ['Unmatch', '12-Mar-2025', '33ABCDE5678F1Z5', 'Supplier C', 'INV013', 7000, 1260, 0, 0, 0, 8260],
+            ];
+            const ws2 = XLSX.utils.aoa_to_sheet(gstr3bSample);
+            XLSX.utils.book_append_sheet(wb, ws2, 'Client Data');
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'Sample_GST_Reconciliation.xlsx';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Generate Output Excel File
+        async function generateOutput(reconciled2bData, reconciled3bData, detailed) {
+            const workbook = new ExcelJS.Workbook();
+            
+            // GSTR-2B Sheet
+            const ws1 = workbook.addWorksheet('GST Portal');
+            const headerRow1 = ws1.addRow(gstr2bHeaders());
+            headerRow1.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0FFFF' } };
+            });
+            reconciled2bData.forEach(row => {
+                const excelRow = row.map((cell, idx) => {
+                    const isDateColumn = gstr2bHeaders()[idx] === 'Invoice Date' ||
+                                        gstr2bHeaders()[idx] === 'GSTR-1/5 Filing Date' ||
+                                        gstr2bHeaders()[idx] === 'IRN Date';
+                    return isDateColumn && cell !== '' ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
+                });
+                const addedRow = ws1.addRow(excelRow);
+                applyExcelRowColor(addedRow, row[0], gstr2bHeaders().length, detailed);
+            });
+
+            // GSTR-3B Sheet
+            const ws2 = workbook.addWorksheet('Client Data');
+            const headerRow2 = ws2.addRow(gstr3bHeaders());
+            headerRow2.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0FFFF' } };
+            });
+            reconciled3bData.forEach(row => {
+                const excelRow = row.map((cell, idx) => {
+                    const isDateColumn = gstr3bHeaders()[idx] === 'Invoice Date';
+                    return isDateColumn && cell !== '' ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
+                });
+                const addedRow = ws2.addRow(excelRow);
+                applyExcelRowColor(addedRow, row[0], gstr3bHeaders().length, detailed);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.getElementById('download-output');
+            link.href = url;
+            link.download = 'Reconciled_GST_Data.xlsx';
+            document.getElementById('output-link').style.display = 'block';
+        }
+
+        function applyExcelRowColor(row, match, columnCount, detailed) {
+            const colors = detailed ? {
+                'Match - GSTN, Invoice No., Date': 'FF00CED1',
+                'Match - GSTN, Invoice No.': 'FF4B0082',
+                'Match - GSTN, Date': 'FF32CD32',
+                'Match - GSTN': 'FFFFBF00',
+                'Unmatch - GSTN Not Exist': 'FFDC143C',
+                'Unmatch - Amt Diff': 'FFFF4500',
+                'Unmatch': 'FFFF00FF'
+            } : {
+                'Match': 'FF00CED1',
+                'Unmatch - GSTN Not Exist': 'FFDC143C',
+                'Unmatch - Amt Diff': 'FFFF4500',
+                'Unmatch': 'FFFF00FF'
+            };
+            const color = colors[match] || 'FFFF00FF';
+            for (let i = 1; i <= columnCount; i++) {
+                const cell = row.getCell(i);
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: color }
+                };
+                cell.font = { color: { argb: 'FFFFFFFF' } };
+            }
+        }
+
+        // Filter Functions
+        function toggleFilters() {
+            const containers = ['gstr2b-container', 'gstr3b-container'];
+            containers.forEach(containerId => {
+                const table = document.getElementById(containerId).querySelector('table');
+                if (table) {
+                    const headers = table.querySelectorAll('thead th');
+                    headers.forEach((th, colIndex) => {
+                        if (filterEnabled) {
+                            addFilterDropdown(th, containerId, colIndex);
+                        } else {
+                            removeFilterDropdown(th);
+                        }
+                    });
+                    if (!filterEnabled) {
+                        resetFilters(containerId);
+                    }
+                }
+            });
+        }
+
+        function addFilterDropdown(th, containerId, colIndex) {
+            if (th.querySelector('.filter-dropdown')) return;
+            const headerText = th.textContent.trim();
+            const dropdown = document.createElement('div');
+            dropdown.className = 'filter-dropdown';
+
+            const filterBtn = document.createElement('button');
+            filterBtn.className = 'filter-btn';
+            filterBtn.innerHTML = '▼';
+            filterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleDropdown(dropdown);
+            });
+
+            const dropdownContent = document.createElement('div');
+            dropdownContent.className = 'filter-dropdown-content';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'filter-input';
+            input.placeholder = `Filter ${headerText}`;
+            input.addEventListener('input', () => filterOptions(input, dropdownContent, containerId, colIndex));
+
+            const optionsDiv = document.createElement('div');
+            optionsDiv.className = 'filter-options';
+            populateFilterOptions(optionsDiv, containerId, colIndex);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'filter-actions';
+            const selectAllBtn = document.createElement('button');
+            selectAllBtn.textContent = 'Select All';
+            selectAllBtn.addEventListener('click', () => selectAllOptions(optionsDiv, containerId));
+            const uncheckAllBtn = document.createElement('button');
+            uncheckAllBtn.textContent = 'Uncheck All';
+            uncheckAllBtn.addEventListener('click', () => uncheckAllOptions(optionsDiv, containerId));
+            actionsDiv.appendChild(selectAllBtn);
+            actionsDiv.appendChild(uncheckAllBtn);
+
+            const sortDiv = document.createElement('div');
+            sortDiv.className = 'sort-actions';
+            const sortAscBtn = document.createElement('button');
+            sortAscBtn.textContent = 'Sort A-Z';
+            sortAscBtn.addEventListener('click', () => sortTable(containerId, colIndex, 'asc'));
+            const sortDescBtn = document.createElement('button');
+            sortDescBtn.textContent = 'Sort Z-A';
+            sortDescBtn.addEventListener('click', () => sortTable(containerId, colIndex, 'desc'));
+            sortDiv.appendChild(sortAscBtn);
+            sortDiv.appendChild(sortDescBtn);
+
+            dropdownContent.appendChild(input);
+            dropdownContent.appendChild(optionsDiv);
+            dropdownContent.appendChild(actionsDiv);
+            dropdownContent.appendChild(sortDiv);
+            dropdown.appendChild(filterBtn);
+            dropdown.appendChild(dropdownContent);
+            th.appendChild(dropdown);
+        }
+
+        function removeFilterDropdown(th) {
+            const dropdown = th.querySelector('.filter-dropdown');
+            if (dropdown) dropdown.remove();
+        }
+
+        function toggleDropdown(dropdown) {
+            const content = dropdown.querySelector('.filter-dropdown-content');
+            document.querySelectorAll('.filter-dropdown-content.show').forEach(d => {
+                if (d !== content) d.classList.remove('show');
+            });
+            content.classList.toggle('show');
+        }
+
+        function populateFilterOptions(optionsDiv, containerId, colIndex) {
+            const table = document.getElementById(containerId).querySelector('table');
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const uniqueValues = new Set(rows.map(row => row.cells[colIndex].textContent.trim()));
+            optionsDiv.innerHTML = '';
+            uniqueValues.forEach(value => {
+                const option = document.createElement('div');
+                option.className = 'filter-option';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = value;
+                checkbox.checked = true;
+                checkbox.addEventListener('change', () => applyFilters(containerId));
+                const label = document.createElement('label');
+                label.textContent = value || '(Blank)';
+                option.appendChild(checkbox);
+                option.appendChild(label);
+                optionsDiv.appendChild(option);
+            });
+        }
+
+        function filterOptions(input, dropdownContent, containerId, colIndex) {
+            const filterText = input.value.toLowerCase();
+            const optionsDiv = dropdownContent.querySelector('.filter-options');
+            const options = optionsDiv.querySelectorAll('.filter-option');
+            options.forEach(option => {
+                const label = option.querySelector('label').textContent.toLowerCase();
+                option.style.display = label.includes(filterText) ? 'flex' : 'none';
+            });
+            applyFilters(containerId);
+        }
+
+        function applyFilters(containerId) {
+            const table = document.getElementById(containerId).querySelector('table');
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const headers = table.querySelectorAll('thead th');
+
+            rows.forEach(row => {
+                let showRow = true;
+                headers.forEach((th, colIndex) => {
+                    const dropdown = th.querySelector('.filter-dropdown-content');
+                    if (dropdown) {
+                        const selectedValues = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
+                            .map(cb => cb.value);
+                        const cellValue = row.cells[colIndex].textContent.trim();
+                        if (selectedValues.length > 0 && !selectedValues.includes(cellValue)) {
+                            showRow = false;
+                        }
+                    }
+                });
+                row.style.display = showRow ? '' : 'none';
+            });
+        }
+
+        function selectAllOptions(optionsDiv, containerId) {
+            const checkboxes = optionsDiv.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+            applyFilters(containerId);
+        }
+
+        function uncheckAllOptions(optionsDiv, containerId) {
+            const checkboxes = optionsDiv.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            applyFilters(containerId);
+        }
+
+        function sortTable(containerId, colIndex, direction) {
+            const table = document.getElementById(containerId).querySelector('table');
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+            rows.sort((a, b) => {
+                const aValue = a.cells[colIndex].textContent.trim().toLowerCase();
+                const bValue = b.cells[colIndex].textContent.trim().toLowerCase();
+
+                const aNum = parseFloat(aValue);
+                const bNum = parseFloat(bValue);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return direction === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+
+                return direction === 'asc' 
+                    ? aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' })
+                    : bValue.localeCompare(aValue, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            const tbody = table.querySelector('tbody');
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+            applyFilters(containerId);
+        }
+
+        function resetFilters(containerId) {
+            const table = document.getElementById(containerId).querySelector('table');
+            if (table) {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => row.style.display = '');
+                delete filters[containerId];
+            }
+        }
+
+        // Close dropdowns on click outside
+        document.addEventListener('click', function(event) {
+            const dropdowns = document.querySelectorAll('.filter-dropdown-content');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.parentElement.contains(event.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+        });
+
+        // Modal Functions
+        function showInstructions() {
+            document.getElementById("instructions-modal").style.display = "block";
+        }
+
+        function hideInstructions() {
+            document.getElementById("instructions-modal").style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById("instructions-modal");
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
