@@ -993,7 +993,7 @@
 async function initPyodide() {
     showLoading('Loading Python Environment...');
     try {
-        // Added indexURL to ensure Pyodide loads correctly from CDN
+        // indexURL specify karna zaroori hai taaki WASM files sahi jagah se load hon
         pyodide = await loadPyodide({
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/"
         });
@@ -1069,7 +1069,8 @@ def normalize_invoice_number(inv_num):
     """Remove special characters from invoice number for comparison"""
     if inv_num is None:
         return ''
-    return re.sub(r'[\\s/\\\\.,"?\\'']', '', str(inv_num))
+    # Double quotes use karne se single quote internal string ko break nahi karega
+    return re.sub(r"[\\s/\\.,\"?']", "", str(inv_num))
 
 def safe_float(value):
     """Safely convert value to float"""
@@ -1759,8 +1760,8 @@ try {
     pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
 
     // Run reconciliation with proper boolean conversion for Python
-    const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${detailed ? 'True' : 'False'})`);
-
+    const pyDetailed = detailed ? "True" : "False";
+const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${pyDetailed})`);
                 
                 const result = JSON.parse(resultJson);
 
