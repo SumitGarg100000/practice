@@ -1759,6 +1759,7 @@ try {
     // Call set_data using the global variables
     pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
 
+    console.log(pyDetailed);
     // Run reconciliation with proper boolean conversion for Python
     const pyDetailed = detailed ? "True" : "False";
 const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${pyDetailed})`);
