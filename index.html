@@ -989,11 +989,15 @@
         }
 
         // Initialize Pyodide
-        async function initPyodide() {
-            showLoading('Loading Python Environment...');
-            try {
-                pyodide = await loadPyodide();
-                console.log('Pyodide loaded successfully');
+     
+async function initPyodide() {
+    showLoading('Loading Python Environment...');
+    try {
+        // Added indexURL to ensure Pyodide loads correctly from CDN
+        pyodide = await loadPyodide({
+            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/"
+        });
+        console.log('Pyodide loaded successfully');
                 
                 // Load Python reconciliation code
                 await pyodide.runPythonAsync(getPythonCode());
@@ -1738,16 +1742,23 @@ print("Python GST Reconciliation module loaded successfully!")
 
             showLoading('Reconciling data with Python...');
 
-            try {
-                const diffInput = document.getElementById('diff-allowed').value;
-                const diffAllowed = diffInput === '' ? 0 : Number(diffInput) || 1;
-                const detailed = document.getElementById('detailed-reconciliation').checked;
+           
+try {
+    const diffInput = document.getElementById('diff-allowed').value;
+    const diffAllowed = diffInput === '' ? 0 : Number(diffInput) || 1;
+    const detailed = document.getElementById('detailed-reconciliation').checked;
 
-                // Send data to Python
-                pyodide.runPython(`set_data('${JSON.stringify(gstr2bData)}', '${JSON.stringify(gstr3bData)}')`);
+    // Data safely transferred using globals instead of string interpolation
+    pyodide.globals.set("js_gstr2b_data", JSON.stringify(gstr2bData));
+    pyodide.globals.set("js_gstr3b_data", JSON.stringify(gstr3bData));
+    
+    // Call set_data using the global variables
+    pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
 
-                // Run reconciliation in Python
-                const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${detailed})`);
+    // Run reconciliation with proper boolean conversion for Python
+    const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${detailed ? 'True' : 'False'})`);
+
+                
                 const result = JSON.parse(resultJson);
 
                 // Update tables with reconciled data
