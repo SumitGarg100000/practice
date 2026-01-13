@@ -1278,10 +1278,13 @@ def find_match(row, source_data, compare_data, is_3b, diff_allowed, detailed):
     # 7. Unmatch
     return 'Unmatch'
 
+# Function ke bilkul bahar top par import karein
+import json
+
 def set_data(gstr2b_json, gstr3b_json):
     """Set data from JSON strings"""
     global gstr2b_data, gstr3b_data
-    import json
+    # Yahan se import hata dein
     gstr2b_data = json.loads(gstr2b_json)
     gstr3b_data = json.loads(gstr3b_json)
     return True
