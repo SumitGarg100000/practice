@@ -1736,71 +1736,57 @@ print("Python GST Reconciliation module loaded successfully!")
             }
         }
 
-        // RECONCILIATION - USING PYTHON
-        async function reconcileData() {
-            if (gstr2bData.length === 0 && gstr3bData.length === 0) return;
-            if (!pyodide) {
-                alert('Python environment not loaded. Please wait or refresh the page.');
-                return;
-            }
-
-            showLoading('Reconciling data with Python...');
-
-           
-try {
-    const diffInput = document.getElementById('diff-allowed').value;
-    const diffAllowed = diffInput === '' ? 0 : Number(diffInput) || 1;
-    const detailed = document.getElementById('detailed-reconciliation').checked;
-
-    // Data safely transferred using globals instead of string interpolation
-    pyodide.globals.set("js_gstr2b_data", JSON.stringify(gstr2bData));
-    pyodide.globals.set("js_gstr3b_data", JSON.stringify(gstr3bData));
-    
-    // Call set_data using the global variables
-    pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
-
-    console.log(pyDetailed);
-    // Run reconciliation with proper boolean conversion for Python
-    const pyDetailed = detailed ? "True" : "False";
-const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${pyDetailed})`);
-                
-                const result = JSON.parse(resultJson);
-
-                // Update tables with reconciled data
-                const gstr2bTable = document.querySelector('#gstr2b-container table tbody');
-                const gstr3bTable = document.querySelector('#gstr3b-container table tbody');
-
-                if (gstr2bTable) {
-                    result.gstr2b.forEach((row, index) => {
-                        if (gstr2bTable.rows[index]) {
-                            updateRow(gstr2bTable.rows[index], row, detailed);
-                        }
-                    });
+       async function reconcileData() {
+    if (gstr2bData.length === 0 && gstr3bData.length === 0) return;
+    if (!pyodide) {
+        alert('Python environment not loaded. Please wait or refresh the page.');
+        return;
+    }
+    showLoading('Reconciling data with Python...');
+    try {
+        const diffInput = document.getElementById('diff-allowed').value;
+        const diffAllowed = diffInput === '' ? 0 : Number(diffInput) || 1;
+        const detailed = document.getElementById('detailed-reconciliation').checked;
+        // Moved here: Declare pyDetailed BEFORE using it
+        const pyDetailed = detailed ? "True" : "False";
+        // Data safely transferred using globals instead of string interpolation
+        pyodide.globals.set("js_gstr2b_data", JSON.stringify(gstr2bData));
+        pyodide.globals.set("js_gstr3b_data", JSON.stringify(gstr3bData));
+        // Call set_data using the global variables
+        pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
+        // Now use pyDetailed here (after declaration)
+        const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${pyDetailed})`);
+        const result = JSON.parse(resultJson);
+        // Update tables with reconciled data
+        const gstr2bTable = document.querySelector('#gstr2b-container table tbody');
+        const gstr3bTable = document.querySelector('#gstr3b-container table tbody');
+        if (gstr2bTable) {
+            result.gstr2b.forEach((row, index) => {
+                if (gstr2bTable.rows[index]) {
+                    updateRow(gstr2bTable.rows[index], row, detailed);
                 }
-
-                if (gstr3bTable) {
-                    result.gstr3b.forEach((row, index) => {
-                        if (gstr3bTable.rows[index]) {
-                            updateRow(gstr3bTable.rows[index], row, detailed);
-                        }
-                    });
-                }
-
-                // Get and display summary
-                const summaryJson = pyodide.runPython(`get_summary(${detailed})`);
-                const summaryData = JSON.parse(summaryJson);
-                displaySummary(summaryData.gstr2b, summaryData.gstr3b, detailed);
-
-                // Generate output
-                generateOutput(result.gstr2b, result.gstr3b, detailed);
-
-                hideLoading();
-            } catch (error) {
-                hideLoading();
-                console.error('Reconciliation error:', error);
-                alert('Error during reconciliation. Please check your data format.');
-            }
+            });
         }
+        if (gstr3bTable) {
+            result.gstr3b.forEach((row, index) => {
+                if (gstr3bTable.rows[index]) {
+                    updateRow(gstr3bTable.rows[index], row, detailed);
+                }
+            });
+        }
+        // Get and display summary
+        const summaryJson = pyodide.runPython(`get_summary(${detailed})`);
+        const summaryData = JSON.parse(summaryJson);
+        displaySummary(summaryData.gstr2b, summaryData.gstr3b, detailed);
+        // Generate output
+        generateOutput(result.gstr2b, result.gstr3b, detailed);
+        hideLoading();
+    } catch (error) {
+        hideLoading();
+        console.error('Reconciliation error:', error);
+        alert('Error during reconciliation. Please check your data format.');
+    }
+}
 
         function updateRow(rowElement, newRow, detailed) {
             Array.from(rowElement.cells).forEach((cell, index) => {
