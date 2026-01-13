@@ -1775,7 +1775,7 @@ print("Python GST Reconciliation module loaded successfully!")
             });
         }
         // Get and display summary
-        const summaryJson = pyodide.runPython(`get_summary(${detailed})`);
+        const summaryJson = pyodide.runPython(`get_summary(${pyDetailed})`);
         const summaryData = JSON.parse(summaryJson);
         displaySummary(summaryData.gstr2b, summaryData.gstr3b, detailed);
         // Generate output
