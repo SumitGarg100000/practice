@@ -1014,7 +1014,8 @@ async function initPyodide() {
         function getPythonCode() {
             return `
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+
 
 # Global data storage
 gstr2b_data = []
@@ -1033,7 +1034,7 @@ def parse_and_format_date(date_input):
     
     # Handle Excel serial numbers
     if isinstance(date_input, (int, float)) and 40000 < date_input < 50000:
-        from datetime import datetime, timedelta
+       
         excel_epoch = datetime(1899, 12, 30)
         days = int(date_input)
         date = excel_epoch + timedelta(days=days)
