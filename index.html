@@ -1476,7 +1476,7 @@ print("Python GST Reconciliation module loaded successfully!")
             }
         });
 
-        // Login Functions
+        // --- Restore Login Function ---
         function login() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
@@ -1507,6 +1507,7 @@ print("Python GST Reconciliation module loaded successfully!")
                 error.textContent = "Invalid username or password!";
             }
         }
+        // -----------------------------
 
         function freeServiceLogin() {
             localStorage.setItem("loggedInUser", "freeServiceUser");
@@ -1809,10 +1810,12 @@ print("Python GST Reconciliation module loaded successfully!")
                     tr.appendChild(td);
                 });
                 
+                
                 // Color row if match criteria exists
                 if (row[0]) {
-                    const detailed = document.getElementById('detailed-reconciliation').checked;
-                    colorRow(tr, row[0], detailed);
+                    // Renamed 'detailed' to 'isDetailedMatch' to avoid SyntaxError
+                    const isDetailedMatch = document.getElementById('detailed-reconciliation').checked;
+                    colorRow(tr, row[0], isDetailedMatch);
                 }
                 tbody.appendChild(tr);
             });
@@ -2128,7 +2131,7 @@ print("Python GST Reconciliation module loaded successfully!")
 
            // --- Addition: Add Summary Sheet to Excel ---
             const wsSummary = workbook.addWorksheet('Reconciliation Summary');
-            const detailed = document.getElementById('detailed-reconciliation').checked;
+            // const detailed declaration removed because it's already in function arguments
             const pyDetailed = detailed ? "True" : "False";
             
             // Get Summary from Python
