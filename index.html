@@ -1380,47 +1380,9 @@ print("Python GST Reconciliation module loaded successfully!")
             const loggedInUser = localStorage.getItem("loggedInUser");
             const isFreeService = localStorage.getItem("isFreeService") === "true";
             
-            // Global Variable for Pagination
-            let currentPage = { 'gstr2b': 1, 'gstr3b': 1 };
-            const rowsPerPage = 50;
-
-            // Simple IndexedDB Helper
-            const dbName = "GSTRepoDB";
-            const initDB = () => {
-                return new Promise((resolve) => {
-                    const request = indexedDB.open(dbName, 1);
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains("gstData")) db.createObjectStore("gstData");
-                    };
-                    request.onsuccess = (e) => resolve(e.target.result);
-                });
-            };
-
-            const saveData = async (key, data) => {
-                const db = await initDB();
-                const tx = db.transaction("gstData", "readwrite");
-                tx.objectStore("gstData").put(data, key);
-            };
-
-            const getData = async (key) => {
-                const db = await initDB();
-                return new Promise((resolve) => {
-                    const tx = db.transaction("gstData", "readonly");
-                    const request = tx.objectStore("gstData").get(key);
-                    request.onsuccess = () => resolve(request.result || []);
-                });
-            };
-
-            // Restore data from IndexedDB
-            async function restoreData() {
-                gstr2bData = await getData('gstr2bData');
-                gstr3bData = await getData('gstr3bData');
-                if (gstr2bData.length > 0) displayData(gstr2bData, 'gstr2b-container', gstr2bHeaders(), 'gstr2b');
-                if (gstr3bData.length > 0) displayData(gstr3bData, 'gstr3b-container', gstr3bHeaders(), 'gstr3b');
-                if (gstr2bData.length > 0 || gstr3bData.length > 0) reconcileData();
-            }
-            restoreData();
+            // Restore data from localStorage
+            gstr2bData = localStorage.getItem('gstr2bData') ? JSON.parse(localStorage.getItem('gstr2bData')) : [];
+            gstr3bData = localStorage.getItem('gstr3bData') ? JSON.parse(localStorage.getItem('gstr3bData')) : [];
             
             if (loggedInUser) {
                 if (isFreeService) {
@@ -1709,55 +1671,33 @@ print("Python GST Reconciliation module loaded successfully!")
             return normalized;
         }
 
+        // Display Data
         function displayData(data, containerId, headers, sheetType) {
             const container = document.getElementById(containerId);
-            container.innerHTML = ''; // Clear previous
-            
-            const tableWrapper = document.createElement('div');
-            tableWrapper.className = 'table-scroll-wrapper';
-            
-            let html = `<table id="table-${sheetType}"><thead><tr>`;
-            headers.forEach(header => html += `<th>${header}</th>`);
-            html += '</tr></thead><tbody id="body-' + sheetType + '"></tbody></table>';
-            
-            const loadMoreBtn = document.createElement('button');
-            loadMoreBtn.innerText = "Load More Rows";
-            loadMoreBtn.className = "mt-2 p-2 bg-blue-500 text-white rounded w-full";
-            loadMoreBtn.onclick = () => renderRows(data, sheetType, headers);
-
-            container.innerHTML = html;
-            container.appendChild(loadMoreBtn);
-            
-            currentPage[sheetType] = 0; // Reset page
-            renderRows(data, sheetType, headers);
-        }
-
-        function renderRows(data, sheetType, headers) {
-            const tbody = document.getElementById('body-' + sheetType);
             const isFreeService = localStorage.getItem("isFreeService") === "true";
-            const start = currentPage[sheetType] * rowsPerPage;
-            const end = start + rowsPerPage;
-            const slice = data.slice(start, end);
-
-            slice.forEach((row, index) => {
-                const rowIndex = start + index;
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-row', rowIndex);
-                tr.setAttribute('data-sheet', sheetType);
-                
+            let html = '<table><thead><tr>';
+            headers.forEach(header => html += `<th>${header}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            data.forEach((row, rowIndex) => {
+                html += `<tr data-row="${rowIndex}" data-sheet="${sheetType}">`;
                 headers.forEach((_, colIndex) => {
-                    const cellValue = row[colIndex] || '';
-                    const td = document.createElement('td');
-                    td.textContent = cellValue;
-                    td.setAttribute('data-col', colIndex);
-                    if (colIndex > 0 && !isFreeService) td.contentEditable = "true";
-                    tr.appendChild(td);
+                    const cell = row[colIndex];
+                    const isDateColumn = headers[colIndex] === 'Invoice Date' ||
+                                        headers[colIndex] === 'GSTR-1/5 Filing Date' ||
+                                        headers[colIndex] === 'IRN Date';
+                    const value = isDateColumn ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
+                    const isEditable = colIndex > 0 && !isFreeService;
+                    html += `<td contenteditable="${isEditable}" data-col="${colIndex}">${value}</td>`;
                 });
-                // Initial coloring logic if already reconciled
-                if(row[0]) colorRow(tr, row[0], document.getElementById('detailed-reconciliation').checked);
-                tbody.appendChild(tr);
+                html += '</tr>';
             });
-            currentPage[sheetType]++;
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            
+            const table = container.querySelector('table');
+            table.addEventListener('input', handleCellEdit);
+            if (filterEnabled) toggleFilters();
         }
 
         function handleCellEdit(event) {
@@ -2059,32 +1999,6 @@ print("Python GST Reconciliation module loaded successfully!")
                 const addedRow = ws2.addRow(excelRow);
                 applyExcelRowColor(addedRow, row[0], gstr3bHeaders().length, detailed);
             });
-
-            // Add Summary Sheet to Excel
-            const ws3 = workbook.addWorksheet('Reconciliation Summary');
-            const pyDetailed = detailed ? "True" : "False";
-            const summaryJson = pyodide.runPython(`get_summary(${pyDetailed})`);
-            const summaryData = JSON.parse(summaryJson);
-            
-            ws3.addRow(['GST Reconciliation Summary']);
-            ws3.addRow(['Particulars', 'Portal Taxable', 'Portal IGST', 'Portal CGST', 'Portal SGST', 'Portal Cess', 'Client Taxable', 'Client IGST', 'Client CGST', 'Client SGST', 'Client Cess']);
-            
-            const criteria = detailed ? 
-                ['Match - GSTN, Invoice No., Date', 'Match - GSTN, Invoice No.', 'Match - GSTN, Date', 'Match - GSTN', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'] :
-                ['Match', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'];
-
-            criteria.forEach(c => {
-                const g2b = summaryData.gstr2b.summary[c] || {taxable:0, igst:0, cgst:0, sgst:0, cess:0};
-                const g3b = summaryData.gstr3b.summary[c] || {taxable:0, igst:0, cgst:0, sgst:0, cess:0};
-                ws3.addRow([c, g2b.taxable, g2b.igst, g2b.cgst, g2b.sgst, g2b.cess, g3b.taxable, g3b.igst, g3b.cgst, g3b.sgst, g3b.cess]);
-            });
-
-            const totalRow = ws3.addRow([
-                'Total', 
-                summaryData.gstr2b.total.taxable, summaryData.gstr2b.total.igst, summaryData.gstr2b.total.cgst, summaryData.gstr2b.total.sgst, summaryData.gstr2b.total.cess,
-                summaryData.gstr3b.total.taxable, summaryData.gstr3b.total.igst, summaryData.gstr3b.total.cgst, summaryData.gstr3b.total.sgst, summaryData.gstr3b.total.cess
-            ]);
-            totalRow.font = { bold: true };
 
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/octet-stream' });
