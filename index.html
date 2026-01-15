@@ -961,6 +961,60 @@
         let filterEnabled = false;
         const filters = {};
 
+        // --- ADDITION START: IndexedDB Setup ---
+let db;  // Global DB reference
+const DB_NAME = 'GSTRecoDB';
+const DB_VERSION = 1;
+const STORES = ['gstr2b', 'gstr3b'];  // Object stores for data
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => reject('IndexedDB error');
+        request.onsuccess = (e) => { db = e.target.result; resolve(); };
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            STORES.forEach(store => db.createObjectStore(store, { keyPath: 'id', autoIncrement: true }));
+        };
+    });
+}
+
+async function storeData(storeName, data) {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    store.clear();  // Clear old data
+    data.forEach(row => store.add({ row }));
+    return new Promise((resolve) => tx.oncomplete = resolve);
+}
+
+async function getDataSlice(storeName, start = 0, limit = 50, filterFn = null, sortFn = null) {
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+    return new Promise((resolve) => {
+        request.onsuccess = (e) => {
+            let data = e.target.result.map(item => item.row);
+            if (filterFn) data = data.filter(filterFn);
+            if (sortFn) data.sort(sortFn);
+            resolve(data.slice(start, start + limit));
+        };
+    });
+}
+
+async function getTotalCount(storeName, filterFn = null) {
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+    return new Promise((resolve) => {
+        request.onsuccess = (e) => {
+            let data = e.target.result.map(item => item.row);
+            if (filterFn) data = data.filter(filterFn);
+            resolve(data.length);
+        };
+    });
+}
+// --- ADDITION END ---
+        
         // Users Database
         const users = {
             "Sumitgarg": { password: "Garg@123", expiry: "2026-04-30" },
@@ -1002,15 +1056,15 @@ async function initPyodide() {
                 // Load Python reconciliation code
                 await pyodide.runPythonAsync(getPythonCode());
                 console.log('Python reconciliation code loaded');
-                hideLoading();
-            } catch (error) {
-                console.error('Error loading Pyodide:', error);
-                hideLoading();
-                alert('Error loading Python environment. Please refresh the page.');
-            }
+            hideLoading();
+            await initDB();  // --- ADDITION: Init DB after Pyodide ---
+        } catch (error) {
+            console.error('Error loading Pyodide:', error);
+            hideLoading();
+            alert('Error loading Python environment. Please refresh the page.');
         }
-
-        // Get Python Code for Reconciliation
+    }
+    // Get Python Code for Reconciliation
         function getPythonCode() {
             return `
 import re
@@ -1672,34 +1726,61 @@ print("Python GST Reconciliation module loaded successfully!")
         }
 
         // Display Data
-        function displayData(data, containerId, headers, sheetType) {
-            const container = document.getElementById(containerId);
-            const isFreeService = localStorage.getItem("isFreeService") === "true";
-            let html = '<table><thead><tr>';
-            headers.forEach(header => html += `<th>${header}</th>`);
-            html += '</tr></thead><tbody>';
-            
-            data.forEach((row, rowIndex) => {
-                html += `<tr data-row="${rowIndex}" data-sheet="${sheetType}">`;
-                headers.forEach((_, colIndex) => {
-                    const cell = row[colIndex];
-                    const isDateColumn = headers[colIndex] === 'Invoice Date' ||
-                                        headers[colIndex] === 'GSTR-1/5 Filing Date' ||
-                                        headers[colIndex] === 'IRN Date';
-                    const value = isDateColumn ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
-                    const isEditable = colIndex > 0 && !isFreeService;
-                    html += `<td contenteditable="${isEditable}" data-col="${colIndex}">${value}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            container.innerHTML = html;
-            
-            const table = container.querySelector('table');
-            table.addEventListener('input', handleCellEdit);
-            if (filterEnabled) toggleFilters();
+       async function displayDataFromDB(containerId, headers, sheetType) {
+    const container = document.getElementById(containerId);
+    const isFreeService = localStorage.getItem("isFreeService") === "true";
+    let html = '<table><thead><tr>';
+    headers.forEach(header => html += `<th>${header}</th>`);
+    html += '</tr></thead><tbody id="${containerId}-tbody"></tbody></table>';  // --- CHANGE: Add tbody ID ---
+    container.innerHTML = html;
+    const tbody = document.getElementById(`${containerId}-tbody`);
+    let start = 0;
+    const limit = 50;
+    // --- ADDITION: Load initial slice from DB ---
+    const initialData = await getDataSlice(sheetType, start, limit);
+    appendRows(tbody, initialData, headers, sheetType, isFreeService, start);
+    // --- ADDITION: Setup scroll observer ---
+    const observer = new IntersectionObserver(async (entries) => {
+        if (entries[0].isIntersecting) {
+            start += limit;
+            const moreData = await getDataSlice(sheetType, start, limit);
+            if (moreData.length > 0) {
+                appendRows(tbody, moreData, headers, sheetType, isFreeService, start);
+            }
         }
+    }, { root: container, threshold: 0.1 });
+    const sentinel = document.createElement('tr');
+    sentinel.id = `${containerId}-sentinel`;
+    tbody.appendChild(sentinel);
+    observer.observe(sentinel);
+    // --- CHANGE: Keep event listeners and filters ---
+    const table = container.querySelector('table');
+    table.addEventListener('input', handleCellEdit);
+    if (filterEnabled) toggleFilters();
+}
 
+// --- ADDITION: Helper function (add this right after the above function) ---
+function appendRows(tbody, data, headers, sheetType, isFreeService, baseIndex) {
+    data.forEach((row, relIndex) => {
+        const rowIndex = baseIndex + relIndex;
+        let rowHtml = `<tr data-row="${rowIndex}" data-sheet="${sheetType}">`;
+        headers.forEach((_, colIndex) => {
+            const cell = row[colIndex];
+            const isDateColumn = headers[colIndex] === 'Invoice Date' ||
+                                headers[colIndex] === 'GSTR-1/5 Filing Date' ||
+                                headers[colIndex] === 'IRN Date';
+            const value = isDateColumn ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
+            const isEditable = colIndex > 0 && !isFreeService;
+            rowHtml += `<td contenteditable="${isEditable}" data-col="${colIndex}">${value}</td>`;
+        });
+        rowHtml += '</tr>';
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+        const newRowElem = tbody.lastElementChild;
+        colorRow(newRowElem, row[0], document.getElementById('detailed-reconciliation').checked);
+    });
+}
+
+        
         function handleCellEdit(event) {
             const target = event.target;
             const isFreeService = localStorage.getItem("isFreeService") === "true";
@@ -1756,25 +1837,19 @@ print("Python GST Reconciliation module loaded successfully!")
         pyodide.runPython(`set_data(js_gstr2b_data, js_gstr3b_data)`);
         // Now use pyDetailed here (after declaration)
         const resultJson = pyodide.runPython(`reconcile(${diffAllowed}, ${pyDetailed})`);
-        const result = JSON.parse(resultJson);
-        // Update tables with reconciled data
-        const gstr2bTable = document.querySelector('#gstr2b-container table tbody');
-        const gstr3bTable = document.querySelector('#gstr3b-container table tbody');
-        if (gstr2bTable) {
-            result.gstr2b.forEach((row, index) => {
-                if (gstr2bTable.rows[index]) {
-                    updateRow(gstr2bTable.rows[index], row, detailed);
-                }
-            });
-        }
-        if (gstr3bTable) {
-            result.gstr3b.forEach((row, index) => {
-                if (gstr3bTable.rows[index]) {
-                    updateRow(gstr3bTable.rows[index], row, detailed);
-                }
-            });
-        }
+const result = JSON.parse(resultJson);
+
+        // --- CHANGE: Store in IndexedDB ---
+await storeData('gstr2b', result.gstr2b);
+await storeData('gstr3b', result.gstr3b);
+gstr2bData = [];  // Clear in-memory arrays
+gstr3bData = [];
+// --- CHANGE: Display from DB instead of direct update ---
+await displayDataFromDB('gstr2b-container', gstr2bHeaders(), 'gstr2b');
+await displayDataFromDB('gstr3b-container', gstr3bHeaders(), 'gstr3b');
+
         // Get and display summary
+        
         const summaryJson = pyodide.runPython(`get_summary(${pyDetailed})`);
         const summaryData = JSON.parse(summaryJson);
         displaySummary(summaryData.gstr2b, summaryData.gstr3b, detailed);
@@ -1996,14 +2071,27 @@ print("Python GST Reconciliation module loaded successfully!")
                     const isDateColumn = gstr3bHeaders()[idx] === 'Invoice Date';
                     return isDateColumn && cell !== '' ? parseAndFormatDate(cell) : (cell === undefined || cell === null ? '' : cell);
                 });
-                const addedRow = ws2.addRow(excelRow);
-                applyExcelRowColor(addedRow, row[0], gstr3bHeaders().length, detailed);
-            });
-
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { type: 'application/octet-stream' });
-            const url = URL.createObjectURL(blob);
-            const link = document.getElementById('download-output');
+                            const addedRow = ws2.addRow(excelRow);
+            applyExcelRowColor(addedRow, row[0], gstr3bHeaders().length, detailed);
+        });
+        // --- ADDITION: Summary Sheet ---
+        const ws3 = workbook.addWorksheet('Summary');
+        ws3.addRow(['Particulars', 'GST Portal Taxable Value', 'GST Portal IGST', 'GST Portal CGST', 'GST Portal SGST', 'GST Portal CESS', 'Client Data Taxable Value', 'Client Data IGST', 'Client Data CGST', 'Client Data SGST', 'Client Data CESS']);
+        const pyDetailed = detailed ? "True" : "False";
+        const summaryJson = pyodide.runPython(`get_summary(${pyDetailed})`);
+        const summaryData = JSON.parse(summaryJson);
+        const criteria = detailed ? ['Match - GSTN, Invoice No., Date', 'Match - GSTN, Invoice No.', 'Match - GSTN, Date', 'Match - GSTN', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'] : ['Match', 'Unmatch - GSTN Not Exist', 'Unmatch - Amt Diff', 'Unmatch'];
+        criteria.forEach(criterion => {
+            const g2b = summaryData.gstr2b.summary[criterion] || {taxable: 0, igst: 0, cgst: 0, sgst: 0, cess: 0};
+            const g3b = summaryData.gstr3b.summary[criterion] || {taxable: 0, igst: 0, cgst: 0, sgst: 0, cess: 0};
+            ws3.addRow([criterion, g2b.taxable.toFixed(2), g2b.igst.toFixed(2), g2b.cgst.toFixed(2), g2b.sgst.toFixed(2), g2b.cess.toFixed(2), g3b.taxable.toFixed(2), g3b.igst.toFixed(2), g3b.cgst.toFixed(2), g3b.sgst.toFixed(2), g3b.cess.toFixed(2)]);
+        });
+        ws3.addRow(['Total', summaryData.gstr2b.total.taxable.toFixed(2), summaryData.gstr2b.total.igst.toFixed(2), summaryData.gstr2b.total.cgst.toFixed(2), summaryData.gstr2b.total.sgst.toFixed(2), summaryData.gstr2b.total.cess.toFixed(2), summaryData.gstr3b.total.taxable.toFixed(2), summaryData.gstr3b.total.igst.toFixed(2), summaryData.gstr3b.total.cgst.toFixed(2), summaryData.gstr3b.total.sgst.toFixed(2), summaryData.gstr3b.total.cess.toFixed(2)]);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.getElementById('download-output');
+            
             link.href = url;
             link.download = 'Reconciled_GST_Data.xlsx';
             document.getElementById('output-link').style.display = 'block';
@@ -2160,27 +2248,34 @@ print("Python GST Reconciliation module loaded successfully!")
             applyFilters(containerId);
         }
 
-        function applyFilters(containerId) {
-            const table = document.getElementById(containerId).querySelector('table');
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
-            const headers = table.querySelectorAll('thead th');
-
-            rows.forEach(row => {
-                let showRow = true;
-                headers.forEach((th, colIndex) => {
-                    const dropdown = th.querySelector('.filter-dropdown-content');
-                    if (dropdown) {
-                        const selectedValues = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
-                            .map(cb => cb.value);
-                        const cellValue = row.cells[colIndex].textContent.trim();
-                        if (selectedValues.length > 0 && !selectedValues.includes(cellValue)) {
-                            showRow = false;
-                        }
-                    }
-                });
-                row.style.display = showRow ? '' : 'none';
-            });
-        }
+        async function applyFilters(containerId) {
+    const sheetType = containerId.includes('2b') ? 'gstr2b' : 'gstr3b';
+    const headers = document.getElementById(containerId).querySelectorAll('thead th');
+    let filterFn = row => {
+        let show = true;
+        headers.forEach((th, colIndex) => {
+            const dropdown = th.querySelector('.filter-dropdown-content');
+            if (dropdown) {
+                const selectedValues = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+                const cellValue = row[colIndex] ? row[colIndex].toString().trim() : '';
+                if (selectedValues.length > 0 && !selectedValues.includes(cellValue)) {
+                    show = false;
+                }
+            }
+        });
+        return show;
+    };
+    // --- CHANGE: Use DB to get filtered data ---
+    const filteredData = await getDataSlice(sheetType, 0, Infinity, filterFn);
+    const tbody = document.getElementById(`${containerId}-tbody`);
+    tbody.innerHTML = '';
+    appendRows(tbody, filteredData, gstr2bHeaders(), sheetType, localStorage.getItem("isFreeService") === "true", 0);  // Adjust headers based on sheetType if needed
+    // --- ADDITION: Re-add sentinel (but since full data is filtered, no infinite scroll needed post-filter; can re-enable if wanted) ---
+    const sentinel = document.createElement('tr');
+    sentinel.id = `${containerId}-sentinel`;
+    tbody.appendChild(sentinel);
+}
 
         function selectAllOptions(optionsDiv, containerId) {
             const checkboxes = optionsDiv.querySelectorAll('input[type="checkbox"]');
@@ -2194,30 +2289,31 @@ print("Python GST Reconciliation module loaded successfully!")
             applyFilters(containerId);
         }
 
-        function sortTable(containerId, colIndex, direction) {
-            const table = document.getElementById(containerId).querySelector('table');
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
-
-            rows.sort((a, b) => {
-                const aValue = a.cells[colIndex].textContent.trim().toLowerCase();
-                const bValue = b.cells[colIndex].textContent.trim().toLowerCase();
-
-                const aNum = parseFloat(aValue);
-                const bNum = parseFloat(bValue);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return direction === 'asc' ? aNum - bNum : bNum - aNum;
-                }
-
-                return direction === 'asc' 
-                    ? aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' })
-                    : bValue.localeCompare(aValue, undefined, { numeric: true, sensitivity: 'base' });
-            });
-
-            const tbody = table.querySelector('tbody');
-            tbody.innerHTML = '';
-            rows.forEach(row => tbody.appendChild(row));
-            applyFilters(containerId);
+        async function sortTable(containerId, colIndex, direction) {
+    const sheetType = containerId.includes('2b') ? 'gstr2b' : 'gstr3b';
+    let sortFn = (a, b) => {
+        const aValue = a[colIndex] ? a[colIndex].toString().trim().toLowerCase() : '';
+        const bValue = b[colIndex] ? b[colIndex].toString().trim().toLowerCase() : '';
+        const aNum = parseFloat(aValue);
+        const bNum = parseFloat(bValue);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return direction === 'asc' ? aNum - bNum : bNum - aNum;
         }
+        return direction === 'asc'
+            ? aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' })
+            : bValue.localeCompare(aValue, undefined, { numeric: true, sensitivity: 'base' });
+    };
+    // --- CHANGE: Use DB to get sorted data ---
+    const sortedData = await getDataSlice(sheetType, 0, Infinity, null, sortFn);
+    const tbody = document.getElementById(`${containerId}-tbody`);
+    tbody.innerHTML = '';
+    appendRows(tbody, sortedData, gstr2bHeaders(), sheetType, localStorage.getItem("isFreeService") === "true", 0);  // Adjust headers
+    // --- ADDITION: Re-add sentinel ---
+    const sentinel = document.createElement('tr');
+    sentinel.id = `${containerId}-sentinel`;
+    tbody.appendChild(sentinel);
+    applyFilters(containerId);
+}
 
         function resetFilters(containerId) {
             const table = document.getElementById(containerId).querySelector('table');
